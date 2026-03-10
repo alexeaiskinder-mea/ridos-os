@@ -1,0 +1,118 @@
+name: Build RIDOS OS ISO
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:     [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build-iso:
+    name: Build RIDOS OS ISO
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            live-build debootstrap squashfs-tools xorriso \
+            grub-pc-bin grub-efi-amd64-bin grub2-common \
+            mtools dosfstools isolinux syslinux-common \
+            curl wget ca-certificates python3 librsvg2-bin
+          echo "live-build version: $(lb --version)"
+
+      - name: Prepare directories
+        run: |
+          mkdir -p build-system/config/includes.chroot/opt/ridos/bin
+          mkdir -p build-system/config/includes.chroot/usr/share/ridos
+          mkdir -p build-system/config/includes.chroot/etc/ridos
+          mkdir -p build-system/config/package-lists
+          mkdir -p build-system/config/hooks
+
+      - name: Inject core files
+        run: |
+          cp ridos-core/*.py build-system/config/includes.chroot/opt/ridos/bin/
+          cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
+             build-system/config/includes.chroot/usr/share/ridos/
+          echo "done"
+
+      - name: Configure live-build
+        run: |
+          cd build-system
+          sudo lb config \
+            --distribution bookworm \
+            --architectures amd64 \
+            --mirror-bootstrap "http://deb.debian.org/debian/" \
+            --mirror-chroot "http://deb.debian.org/debian/" \
+            --mirror-chroot-security "http://security.debian.org/debian-security/" \
+            --mirror-binary "http://deb.debian.org/debian/" \
+            --mirror-binary-security "http://security.debian.org/debian-security/" \
+            --archive-areas "main contrib non-free non-free-firmware" \
+            --binary-images iso-hybrid \
+            --debian-installer false \
+            --memtest none \
+            --iso-volume "RIDOS_OS_1.1" \
+            --iso-publisher "RIDOS OS Project" \
+            --iso-application "RIDOS OS v1.1 Baghdad" \
+            --linux-packages "linux-image-amd64" \
+            --linux-flavours amd64 \
+            --firmware-binary true \
+            --firmware-chroot true \
+            --apt-recommends false
+          echo "configured"
+
+      - name: Build ISO
+        run: |
+          cd build-system
+          sudo lb build 2>&1 | tee /tmp/build.log
+          ls -lh *.iso 2>/dev/null || ls -lh live-image*.iso 2>/dev/null
+
+      - name: Package ISO
+        run: |
+          cd build-system
+          ISO=$(ls live-image*.iso 2>/dev/null | head -1)
+          if [ -z "$ISO" ]; then
+            echo "ERROR: No ISO found"
+            tail -100 /tmp/build.log
+            exit 1
+          fi
+          mv "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
+          cd ..
+          md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+          echo "ISO_SIZE=$(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso | cut -f1)" >> $GITHUB_ENV
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RIDOS-OS-1.1.0-Baghdad
+          path: |
+            ridos-os-1.1.0-Baghdad-x86_64.iso
+            ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+          retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/build.log
+          retention-days: 7
+
+      - name: Create GitHub Release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "RIDOS OS ${{ github.ref_name }} Baghdad"
+          body: |
+            ## RIDOS OS ${{ github.ref_name }} "Baghdad"
+            AI-powered Linux distro for IT professionals.
+            Flash with Balena Etcher or dd.
+            Copyright (C) 2026 RIDOS OS Project — GPL v3
+          files: |
+            ridos-os-1.1.0-Baghdad-x86_64.iso
+            ridos-os-1.1.0-Baghdad-x86_64.iso.md5
