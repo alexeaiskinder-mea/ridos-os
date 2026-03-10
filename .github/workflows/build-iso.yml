@@ -81,17 +81,15 @@ jobs:
       # ── 6. Configure live-build ──────────────────────────────
       - name: Configure live-build
         run: |
+          lb --version
           cd build-system
           sudo lb config \
             --distribution bookworm \
-            --arch amd64 \
+            --architectures amd64 \
             --archive-areas "main contrib non-free non-free-firmware" \
-            --bootloaders "grub-pc,grub-efi-amd64" \
-            --uefi-secure-boot disable \
             --binary-images iso-hybrid \
             --debian-installer false \
             --memtest none \
-            --win32-loader false \
             --iso-volume "RIDOS_OS_1.1" \
             --iso-publisher "RIDOS OS Project" \
             --iso-application "RIDOS OS v1.1 Baghdad" \
