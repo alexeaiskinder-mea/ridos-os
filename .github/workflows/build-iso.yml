@@ -1,19 +1,9 @@
-# ═══════════════════════════════════════════════════════════════
-# RIDOS OS v1.1 — GitHub Actions Build Pipeline
-# Copyright (C) 2026 RIDOS OS Project — GPL v3
-#
-# Automatically builds RIDOS OS ISO on every push to main.
-# Download the ISO from the Actions "Artifacts" tab.
-# ═══════════════════════════════════════════════════════════════
-
 name: Build RIDOS OS ISO
 
 on:
   push:
     branches: [ main, develop ]
     tags:     [ 'v*' ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -23,69 +13,45 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      # ── 1. Checkout ──────────────────────────────────────────
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # ── 2. Install dependencies ──────────────────────────────
       - name: Install build dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
-            live-build \
-            debootstrap \
-            squashfs-tools \
-            xorriso \
-            grub-pc-bin \
-            grub-efi-amd64-bin \
-            grub2-common \
-            mtools \
-            dosfstools \
-            isolinux \
-            syslinux-common \
-            curl wget ca-certificates \
-            python3 python3-pip \
-            librsvg2-bin
+            live-build debootstrap squashfs-tools xorriso \
+            grub-pc-bin grub-efi-amd64-bin grub2-common \
+            mtools dosfstools isolinux syslinux-common \
+            curl wget ca-certificates python3 librsvg2-bin
           echo "live-build version: $(lb --version)"
-          echo "debootstrap version: $(debootstrap --version)"
-          echo "✓ All dependencies installed"
 
-      # ── 3. Prepare build directory ───────────────────────────
-      - name: Prepare build directory
+      - name: Prepare directories
         run: |
           mkdir -p build-system/config/includes.chroot/opt/ridos/bin
           mkdir -p build-system/config/includes.chroot/usr/share/ridos
           mkdir -p build-system/config/includes.chroot/etc/ridos
           mkdir -p build-system/config/package-lists
           mkdir -p build-system/config/hooks
-          echo "✓ Build directories ready"
 
-      # ── 4. Inject RIDOS core files ───────────────────────────
-      - name: Inject RIDOS core files
+      - name: Inject core files
         run: |
           cp ridos-core/*.py build-system/config/includes.chroot/opt/ridos/bin/
-          chmod +x build-system/config/includes.chroot/opt/ridos/bin/*.py
           cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
              build-system/config/includes.chroot/usr/share/ridos/
-          echo "✓ Core files injected"
+          echo "done"
 
-      # ── 5. Convert SVG wallpaper to PNG ──────────────────────
-      - name: Convert wallpaper SVG to PNG
-        run: |
-          SVG="build-system/config/includes.chroot/usr/share/backgrounds/ridos/ridos-wallpaper.svg"
-          PNG="build-system/config/includes.chroot/usr/share/backgrounds/ridos/ridos-wallpaper.png"
-          if [ -f "$SVG" ]; then
-            rsvg-convert -w 1920 -h 1080 "$SVG" -o "$PNG" && echo "✓ Wallpaper converted" || echo "⚠ SVG convert failed, skipping"
-          fi
-
-      # ── 6. Configure live-build ──────────────────────────────
       - name: Configure live-build
         run: |
-          lb --version
           cd build-system
           sudo lb config \
             --distribution bookworm \
             --architectures amd64 \
+            --mirror-bootstrap "http://deb.debian.org/debian/" \
+            --mirror-chroot "http://deb.debian.org/debian/" \
+            --mirror-chroot-security "http://security.debian.org/debian-security/" \
+            --mirror-binary "http://deb.debian.org/debian/" \
+            --mirror-binary-security "http://security.debian.org/debian-security/" \
             --archive-areas "main contrib non-free non-free-firmware" \
             --binary-images iso-hybrid \
             --debian-installer false \
@@ -98,38 +64,28 @@ jobs:
             --firmware-binary true \
             --firmware-chroot true \
             --apt-recommends false
-          echo "✓ live-build configured"
+          echo "configured"
 
-      # ── 7. Build ISO ─────────────────────────────────────────
-      - name: Build RIDOS OS ISO
+      - name: Build ISO
         run: |
           cd build-system
-          sudo lb build 2>&1 | tee /tmp/ridos-build.log
-          echo "--- Build output files ---"
-          ls -lh *.iso 2>/dev/null || ls -lh live-image*.iso 2>/dev/null || echo "No ISO found yet"
+          sudo lb build 2>&1 | tee /tmp/build.log
+          ls -lh *.iso 2>/dev/null || ls -lh live-image*.iso 2>/dev/null
 
-      # ── 8. Rename and checksum ───────────────────────────────
       - name: Package ISO
         run: |
           cd build-system
           ISO=$(ls live-image*.iso 2>/dev/null | head -1)
           if [ -z "$ISO" ]; then
-            echo "ERROR: No ISO file found!"
-            ls -la
-            tail -50 /tmp/ridos-build.log
+            echo "ERROR: No ISO found"
+            tail -100 /tmp/build.log
             exit 1
           fi
-          NEW="ridos-os-1.1.0-Baghdad-x86_64.iso"
-          mv "$ISO" "../$NEW"
+          mv "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
           cd ..
-          md5sum "$NEW" > "$NEW.md5"
-          sha256sum "$NEW" > "$NEW.sha256"
-          SIZE=$(du -sh "$NEW" | cut -f1)
-          echo "ISO_NAME=$NEW" >> $GITHUB_ENV
-          echo "ISO_SIZE=$SIZE" >> $GITHUB_ENV
-          echo "✓ ISO ready: $NEW ($SIZE)"
+          md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+          echo "ISO_SIZE=$(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso | cut -f1)" >> $GITHUB_ENV
 
-      # ── 9. Upload artifact ───────────────────────────────────
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
@@ -137,56 +93,26 @@ jobs:
           path: |
             ridos-os-1.1.0-Baghdad-x86_64.iso
             ridos-os-1.1.0-Baghdad-x86_64.iso.md5
-            ridos-os-1.1.0-Baghdad-x86_64.iso.sha256
           retention-days: 30
 
-      # ── 10. Upload build log on failure ──────────────────────
-      - name: Upload build log
+      - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: /tmp/ridos-build.log
+          path: /tmp/build.log
           retention-days: 7
 
-      # ── 11. GitHub Release on tag ────────────────────────────
-      - name: Create GitHub Release
+      - name: Create GitHub Release on tag
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          name: "RIDOS OS ${{ github.ref_name }} — Baghdad"
+          name: "RIDOS OS ${{ github.ref_name }} Baghdad"
           body: |
             ## RIDOS OS ${{ github.ref_name }} "Baghdad"
-            **Retro Intelligent Desktop Operating System**
-            Built for IT Professionals — Powered by Claude AI
-
-            ### Flash to USB
-            **Windows/Mac:** Use [Balena Etcher](https://etcher.balena.io)
-            **Linux:**
-            ```bash
-            sudo dd if=ridos-os-1.1.0-Baghdad-x86_64.iso of=/dev/sdX bs=4M status=progress
-            ```
-            ### Verify
-            ```bash
-            md5sum -c ridos-os-1.1.0-Baghdad-x86_64.iso.md5
-            ```
-            ### License
+            AI-powered Linux distro for IT professionals.
+            Flash with Balena Etcher or dd.
             Copyright (C) 2026 RIDOS OS Project — GPL v3
           files: |
             ridos-os-1.1.0-Baghdad-x86_64.iso
             ridos-os-1.1.0-Baghdad-x86_64.iso.md5
-            ridos-os-1.1.0-Baghdad-x86_64.iso.sha256
-          draft: false
-          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-
-      # ── 12. Summary ──────────────────────────────────────────
-      - name: Build summary
-        if: always()
-        run: |
-          echo "## RIDOS OS Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | 1.1.0 Baghdad |" >> $GITHUB_STEP_SUMMARY
-          echo "| ISO | ${{ env.ISO_NAME }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Size | ${{ env.ISO_SIZE }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
