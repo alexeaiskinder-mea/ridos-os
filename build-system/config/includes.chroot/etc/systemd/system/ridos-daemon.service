@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════════════════
+# RIDOS OS v1.1 — ridos-daemon.service
+# Copyright (C) 2026 RIDOS OS Project — GPL v3
+# ═══════════════════════════════════════════════════════════════
+
+[Unit]
+Description=RIDOS OS AI Assistant Daemon
+Documentation=https://github.com/ridos-os/ridos-os
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ridos
+Group=ridos
+ExecStart=/usr/bin/python3 /opt/ridos/bin/ai_daemon.py
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=append:/var/log/ridos/daemon.log
+StandardError=append:/var/log/ridos/daemon.log
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/ridos /run /etc/ridos
+
+[Install]
+WantedBy=multi-user.target

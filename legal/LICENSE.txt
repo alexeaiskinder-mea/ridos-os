@@ -1,0 +1,62 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+RIDOS OS — Retro Intelligent Desktop Operating System
+Copyright (C) 2026  RIDOS OS Project Contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THIRD-PARTY COMPONENTS & THEIR LICENSES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RIDOS OS is built on top of the following open-source components.
+Each component is governed by its own license:
+
+  Linux Kernel          GPL v2         https://kernel.org
+  Debian GNU/Linux      DFSG           https://debian.org
+  Python 3              PSF License    https://python.org
+  GRUB Bootloader       GPL v3         https://gnu.org/software/grub
+  NetworkManager        GPL v2         https://gnome.org/projects/NetworkManager
+  Nmap                  NPSL           https://nmap.org/book/man-legal.html
+  Wireshark             GPL v2         https://wireshark.org
+  OpenSSH               BSD/MIT        https://openssh.com
+  Git                   GPL v2         https://git-scm.com
+  XFCE Desktop          GPL v2/LGPL    https://xfce.org
+  httpx (Python)        BSD            https://python-httpx.org
+  prompt_toolkit        BSD            https://python-prompt-toolkit.readthedocs.io
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANTHROPIC CLAUDE API — IMPORTANT NOTICE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RIDOS OS integrates with Anthropic's Claude API. Usage of the Claude
+API is governed by Anthropic's Terms of Service:
+  https://www.anthropic.com/legal/aup
+
+Each user must provide their own Anthropic API key. RIDOS OS does NOT
+include, distribute, or embed any Anthropic API keys. The user is
+solely responsible for compliance with Anthropic's usage policies and
+any associated costs.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DISCLAIMER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RIDOS OS is provided for educational and professional IT use.
+The included network security tools (Nmap, Wireshark, etc.) must only
+be used on networks and systems you own or have explicit permission to
+test. Unauthorized use of these tools may be illegal in your jurisdiction.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

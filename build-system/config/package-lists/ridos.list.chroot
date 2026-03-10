@@ -1,0 +1,165 @@
+# ═══════════════════════════════════════════════════════════════
+# RIDOS OS v1.1 — Package List
+# Copyright (C) 2026 RIDOS OS Project — GPL v3
+#
+# All packages installed in the RIDOS OS ISO
+# Grouped by category for clarity
+# ═══════════════════════════════════════════════════════════════
+
+# ── System Base ────────────────────────────────────────────────
+systemd
+systemd-sysv
+dbus
+udev
+policykit-1
+sudo
+bash
+coreutils
+util-linux
+procps
+psmisc
+
+# ── Boot & Display ─────────────────────────────────────────────
+grub-pc
+grub-efi-amd64
+os-prober
+plymouth
+plymouth-themes
+
+# ── Hardware Support ───────────────────────────────────────────
+firmware-linux
+firmware-linux-nonfree
+firmware-misc-nonfree
+firmware-realtek
+firmware-atheros
+firmware-iwlwifi
+firmware-brcm80211
+firmware-ralink
+linux-firmware
+
+# ── Networking Core ────────────────────────────────────────────
+network-manager
+network-manager-gnome
+wpasupplicant
+wireless-tools
+iw
+rfkill
+net-tools
+ifupdown
+iproute2
+iputils-ping
+iputils-tracepath
+resolvconf
+dnsutils
+avahi-daemon
+nfs-common
+
+# ── IT Professional Network Tools ─────────────────────────────
+nmap
+wireshark
+tcpdump
+netcat-openbsd
+traceroute
+whois
+dnsutils
+arp-scan
+netdiscover
+iperf3
+fping
+mtr-tiny
+socat
+ncat
+masscan
+
+# ── Remote Access & Management ────────────────────────────────
+openssh-client
+openssh-server
+remmina
+remmina-plugin-rdp
+remmina-plugin-vnc
+tigervnc-viewer
+sshpass
+screen
+tmux
+
+# ── Security Tools ─────────────────────────────────────────────
+ufw
+iptables
+clamav
+chkrootkit
+lynis
+fail2ban
+openssl
+gpg
+
+# ── Development Environment ────────────────────────────────────
+python3
+python3-pip
+python3-venv
+python3-dev
+gcc
+g++
+make
+cmake
+git
+curl
+wget
+build-essential
+gdb
+strace
+ltrace
+
+# ── Text Editors ───────────────────────────────────────────────
+neovim
+nano
+gedit
+
+# ── Shell & Terminal ──────────────────────────────────────────
+bash
+zsh
+fish
+xterm
+rxvt-unicode
+
+# ── File Management ───────────────────────────────────────────
+zip
+unzip
+tar
+gzip
+bzip2
+p7zip-full
+rsync
+rclone
+
+# ── System Monitoring ─────────────────────────────────────────
+htop
+btop
+iotop
+iftop
+nethogs
+sysstat
+lsof
+strace
+
+# ── Desktop Environment (XFCE Lite) ───────────────────────────
+xfce4
+xfce4-terminal
+xfce4-screenshooter
+lightdm
+lightdm-gtk-greeter
+xorg
+
+# ── GUI Applications ──────────────────────────────────────────
+firefox-esr
+thunar
+mousepad
+
+# ── AI & Python Libraries (installed via pip in hook) ─────────
+# httpx, prompt_toolkit, psutil, flask, flask-socketio
+# (installed via build hook, not apt)
+
+# ── Fonts & Locale ────────────────────────────────────────────
+fonts-dejavu
+fonts-liberation
+locales
+tzdata

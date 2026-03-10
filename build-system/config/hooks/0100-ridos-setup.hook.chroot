@@ -1,0 +1,130 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+# RIDOS OS v1.1 — 0100-ridos-setup.hook.chroot
+# Copyright (C) 2026 RIDOS OS Project — GPL v3
+#
+# This hook runs INSIDE the chroot during live-build.
+# It configures the system, installs Python deps, sets up RIDOS.
+# ═══════════════════════════════════════════════════════════════
+set -e
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo " RIDOS OS v1.1 — System Configuration Hook"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# ── 1. System Identity ─────────────────────────────────────────
+echo "ridos-os" > /etc/hostname
+echo "RIDOS_VERSION=1.1.0"       > /etc/ridos/version
+echo "RIDOS_BUILD_DATE=$(date +%Y-%m-%d)" >> /etc/ridos/version
+echo "RIDOS_ARCH=$(uname -m)"    >> /etc/ridos/version
+echo "RIDOS_CODENAME=Basra"      >> /etc/ridos/version
+
+# ── 2. /etc/os-release ────────────────────────────────────────
+cat > /etc/os-release << 'EOF'
+NAME="RIDOS OS"
+VERSION="1.1.0 (Basra)"
+ID=ridos
+ID_LIKE=debian
+PRETTY_NAME="RIDOS OS 1.1.0 (Basra)"
+VERSION_ID="1.1"
+HOME_URL="https://github.com/ridos-os/ridos-os"
+SUPPORT_URL="https://github.com/ridos-os/ridos-os/issues"
+BUG_REPORT_URL="https://github.com/ridos-os/ridos-os/issues"
+LOGO=ridos-os-logo
+EOF
+
+# ── 3. /etc/issue ─────────────────────────────────────────────
+cat > /etc/issue << 'EOF'
+
+  ██████╗ ██╗██████╗  ██████╗ ███████╗
+  ██╔══██╗██║██╔══██╗██╔═══██╗██╔════╝
+  ██████╔╝██║██║  ██║██║   ██║███████╗
+  ██╔══██╗██║██║  ██║██║   ██║╚════██║
+  ██║  ██║██║██████╔╝╚██████╔╝███████║
+  ╚═╝  ╚═╝╚═╝╚═════╝  ╚═════╝ ╚══════╝
+
+  RIDOS OS v1.1.0 "Basra"
+  Retro Intelligent Desktop OS for IT Professionals
+
+  Copyright (C) 2026 RIDOS OS Project — GPL v3
+  https://github.com/ridos-os/ridos-os
+
+  Type your question to talk to RIDOS AI.
+  Use 'ridos-shell' to start the AI assistant.
+
+EOF
+
+# ── 4. Create ridos user ───────────────────────────────────────
+useradd -m -s /bin/bash -G sudo,adm,netdev,wireshark ridos 2>/dev/null || true
+echo "ridos:ridos" | chpasswd
+echo "root:ridos"  | chpasswd
+
+# ── 5. sudo without password for ridos ────────────────────────
+echo "ridos ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/ridos
+chmod 440 /etc/sudoers.d/ridos
+
+# ── 6. Directory structure ─────────────────────────────────────
+mkdir -p /opt/ridos/bin
+mkdir -p /opt/ridos/models
+mkdir -p /etc/ridos
+mkdir -p /var/log/ridos
+chmod 700 /etc/ridos
+
+# placeholder api key
+echo "CONFIGURE_ON_FIRST_BOOT" > /etc/ridos/api.key
+chmod 600 /etc/ridos/api.key
+
+# default config
+cat > /etc/ridos/config.json << 'RCONF'
+{
+  "version": "1.1.0",
+  "codename": "Basra",
+  "online_model": "claude-haiku-4-5-20251001",
+  "max_tokens": 512,
+  "temperature": 0.7,
+  "theme": "blue",
+  "enable_offline_fallback": false,
+  "user_name": "",
+  "enable_web_search": true,
+  "enable_it_tools": true,
+  "log_level": "INFO"
+}
+RCONF
+
+# ── 7. Install Python dependencies ────────────────────────────
+pip3 install --break-system-packages --quiet \
+  httpx \
+  prompt_toolkit \
+  psutil \
+  flask \
+  flask-socketio \
+  eventlet \
+  paramiko \
+  requests
+
+echo "✓ Python dependencies installed"
+
+# ── 8. Set permissions on RIDOS scripts ───────────────────────
+chmod +x /opt/ridos/bin/*.py 2>/dev/null || true
+chmod +x /usr/local/bin/ridos* 2>/dev/null || true
+
+# ── 9. Enable systemd services ────────────────────────────────
+systemctl enable ridos-daemon.service 2>/dev/null || true
+systemctl enable NetworkManager.service 2>/dev/null || true
+systemctl enable ssh.service 2>/dev/null || true
+
+# ── 10. Set locale and timezone ───────────────────────────────
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+echo "ar_IQ.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen 2>/dev/null || true
+echo "LANG=en_US.UTF-8" > /etc/default/locale
+
+# ── 11. Configure UFW defaults ────────────────────────────────
+ufw --force enable 2>/dev/null || true
+ufw default deny incoming  2>/dev/null || true
+ufw default allow outgoing 2>/dev/null || true
+ufw allow ssh 2>/dev/null || true
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo " ✓ RIDOS OS hook completed successfully"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

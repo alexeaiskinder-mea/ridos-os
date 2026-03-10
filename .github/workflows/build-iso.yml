@@ -1,0 +1,143 @@
+# ═══════════════════════════════════════════════════════════════
+# RIDOS OS v1.1 — GitHub Actions Build Pipeline
+# Copyright (C) 2026 RIDOS OS Project — GPL v3
+#
+# Automatically builds RIDOS OS ISO on every push to main.
+# Download the ISO from the Actions "Artifacts" tab.
+# ═══════════════════════════════════════════════════════════════
+
+name: Build RIDOS OS ISO
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:     [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:          # allows manual trigger from GitHub UI
+
+jobs:
+  build-iso:
+    name: Build RIDOS OS ${{ github.ref_name }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      # ── 1. Checkout source ───────────────────────────────────
+      - name: Checkout RIDOS OS source
+        uses: actions/checkout@v4
+
+      # ── 2. Install build dependencies ───────────────────────
+      - name: Install live-build and dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            live-build \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            mtools \
+            dosfstools \
+            curl \
+            wget
+          lb --version
+          echo "✓ Build tools installed"
+
+      # ── 3. Configure live-build ──────────────────────────────
+      - name: Configure live-build
+        run: |
+          cd build-system
+          sudo bash scripts/lb_config.sh
+
+      # ── 4. Copy RIDOS Python core files ──────────────────────
+      - name: Inject RIDOS core files
+        run: |
+          sudo cp ridos-core/*.py \
+            build-system/config/includes.chroot/opt/ridos/bin/
+          sudo chmod +x \
+            build-system/config/includes.chroot/opt/ridos/bin/*.py
+          echo "✓ Core files injected"
+
+      # ── 5. Copy legal files into ISO ─────────────────────────
+      - name: Include legal files
+        run: |
+          sudo mkdir -p \
+            build-system/config/includes.chroot/usr/share/ridos
+          sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
+            build-system/config/includes.chroot/usr/share/ridos/
+          echo "✓ Legal files included"
+
+      # ── 6. Build ISO ─────────────────────────────────────────
+      - name: Build RIDOS OS ISO
+        run: |
+          cd build-system
+          sudo lb build 2>&1 | tee /tmp/build.log
+          ls -lh *.iso || ls -lh live-image*.iso
+
+      # ── 7. Rename ISO with version ───────────────────────────
+      - name: Rename output ISO
+        run: |
+          cd build-system
+          ISO=$(ls live-image*.iso 2>/dev/null | head -1 || ls *.iso | head -1)
+          NEW="ridos-os-1.1.0-x86_64.iso"
+          sudo mv "$ISO" "../$NEW"
+          echo "ISO_FILE=$NEW" >> $GITHUB_ENV
+          echo "ISO_SIZE=$(du -sh ../$NEW | cut -f1)" >> $GITHUB_ENV
+          md5sum "../$NEW" > "../$NEW.md5"
+          echo "✓ ISO ready: $NEW"
+
+      # ── 8. Upload ISO as artifact ────────────────────────────
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ridos-os-1.1.0-iso
+          path: |
+            ridos-os-1.1.0-x86_64.iso
+            ridos-os-1.1.0-x86_64.iso.md5
+          retention-days: 30
+
+      # ── 9. Create GitHub Release (on tag push only) ──────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "RIDOS OS ${{ github.ref_name }}"
+          body: |
+            ## RIDOS OS ${{ github.ref_name }}
+
+            **Retro Intelligent Desktop Operating System**
+            Built for IT Professionals — Powered by Claude AI
+
+            ### Download & Flash
+            ```bash
+            # Linux
+            sudo dd if=ridos-os-1.1.0-x86_64.iso of=/dev/sdX bs=4M status=progress
+            # Windows/Mac: Use Balena Etcher
+            ```
+
+            ### Verify
+            ```bash
+            md5sum -c ridos-os-1.1.0-x86_64.iso.md5
+            ```
+
+            ### Copyright
+            Copyright (C) 2026 RIDOS OS Project — GPL v3
+          files: |
+            ridos-os-1.1.0-x86_64.iso
+            ridos-os-1.1.0-x86_64.iso.md5
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+      # ── 10. Build summary ────────────────────────────────────
+      - name: Build summary
+        if: always()
+        run: |
+          echo "## RIDOS OS Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | 1.1.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "| ISO Size | ${{ env.ISO_SIZE }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
