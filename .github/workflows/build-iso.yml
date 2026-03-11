@@ -52,7 +52,14 @@ jobs:
         run: |
           for f in $(grep -rln "casper" /usr/lib/live/build/ 2>/dev/null); do
             sudo sed -i 's/casper/live-boot/g' "$f"
+            echo "Patched: $f"
           done
+          # Also patch the defaults file where LB_LIVE_PACKAGES might be set
+          sudo find /usr/lib/live/ /usr/share/live/ -name "*.sh" -o -name "defaults" 2>/dev/null |             xargs grep -ln "casper" 2>/dev/null | while read f; do
+              sudo sed -i 's/casper/live-boot/g' "$f"
+              echo "Patched defaults: $f"
+            done
+          echo "All casper patches done"
           sudo cp build-system/scripts/wget-wrapper.sh /usr/local/bin/wget
           sudo chmod +x /usr/local/bin/wget
           echo "Patches applied"
