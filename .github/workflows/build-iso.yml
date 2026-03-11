@@ -26,6 +26,8 @@ jobs:
             curl wget ca-certificates python3 librsvg2-bin \
             debian-archive-keyring gnupg2
           lb --version
+          # Show live-build scripts to debug
+          grep -r "Contents" /usr/lib/live/build/ 2>/dev/null | grep -v "Binary\|binary" | head -20
 
       - name: Import Debian bookworm signing key
         run: |
@@ -40,6 +42,21 @@ jobs:
           sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null
           echo "✓ Key imported"
 
+      - name: Patch live-build to skip Contents download
+        run: |
+          # Find and patch the script that downloads Contents-amd64.gz
+          echo "=== Searching for Contents download in live-build ==="
+          grep -rn "Contents" /usr/lib/live/build/ 2>/dev/null || true
+          echo "=== All live-build scripts ==="
+          ls /usr/lib/live/build/
+          # Patch chroot_apt script - replace wget of Contents with true
+          for f in /usr/lib/live/build/*; do
+            if grep -q "Contents" "$f" 2>/dev/null; then
+              echo "Patching: $f"
+              sudo sed -i 's/wget.*Contents[^;]*/true # Contents disabled/g' "$f" || true
+            fi
+          done
+
       - name: Prepare directories
         run: |
           mkdir -p build-system/config/includes.chroot/opt/ridos/bin
@@ -47,12 +64,9 @@ jobs:
           mkdir -p build-system/config/includes.chroot/etc/ridos
           mkdir -p build-system/config/package-lists
           mkdir -p build-system/config/hooks
-          # Place apt.conf INSIDE the chroot to disable Contents fetching
           mkdir -p build-system/config/includes.chroot/etc/apt/apt.conf.d
-          cat > build-system/config/includes.chroot/etc/apt/apt.conf.d/99no-contents << 'APTEOF'
-          Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";
-          Acquire::IndexTargets::deb-src::Contents-deb::DefaultEnabled "false";
-          APTEOF
+          printf 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";\n' \
+            > build-system/config/includes.chroot/etc/apt/apt.conf.d/99no-contents
 
       - name: Inject core files
         run: |
@@ -105,7 +119,6 @@ jobs:
           mv "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
           cd ..
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
-          echo "ISO_SIZE=$(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso | cut -f1)" >> $GITHUB_ENV
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
