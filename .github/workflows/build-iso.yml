@@ -47,6 +47,8 @@ jobs:
           done
           sudo cp build-system/scripts/wget-wrapper.sh /usr/local/bin/wget
           sudo chmod +x /usr/local/bin/wget
+          sudo cp build-system/scripts/inject-apt-conf.sh /usr/local/bin/inject-apt-conf
+          sudo chmod +x /usr/local/bin/inject-apt-conf
           echo "Patches applied"
 
       - name: Prepare build directories
@@ -59,7 +61,7 @@ jobs:
           mkdir -p build-system/config/hooks/normal
           printf 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";\n' \
             > build-system/config/includes.chroot/etc/apt/apt.conf.d/99no-contents
-          printf '#!/bin/sh\nmkdir -p /etc/apt/apt.conf.d\nprintf "Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled \\"false\\";\\n" > /etc/apt/apt.conf.d/99no-contents\n' \
+          printf '#!/bin/sh\nmkdir -p /etc/apt/apt.conf.d\nprintf "Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled false;\n" > /etc/apt/apt.conf.d/99no-contents\n' \
             > build-system/config/hooks/normal/0001-no-contents.hook.chroot
           chmod +x build-system/config/hooks/normal/0001-no-contents.hook.chroot
 
