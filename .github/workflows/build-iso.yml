@@ -24,8 +24,19 @@ jobs:
             grub-pc-bin grub-efi-amd64-bin grub2-common \
             mtools dosfstools isolinux syslinux-common \
             curl wget ca-certificates python3 librsvg2-bin \
-            debian-archive-keyring
+            debian-archive-keyring gnupg2
           echo "live-build version: $(lb --version)"
+
+      - name: Update Debian keyring
+        run: |
+          # Download latest Debian bookworm signing keys
+          wget -q https://ftp-master.debian.org/keys/archive-key-12.asc -O /tmp/debian-key.asc
+          sudo gpg --dearmor -o /usr/share/keyrings/debian-archive-keyring.gpg /tmp/debian-key.asc
+          wget -q https://ftp-master.debian.org/keys/archive-key-12-security.asc -O /tmp/debian-sec-key.asc
+          sudo gpg --dearmor --no-default-keyring \
+            --keyring /usr/share/keyrings/debian-archive-keyring.gpg \
+            /tmp/debian-sec-key.asc
+          echo "✓ Debian keyring updated"
 
       - name: Prepare directories
         run: |
