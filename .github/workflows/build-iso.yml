@@ -105,7 +105,7 @@ jobs:
             --apt-recommends false
           echo "configured"
           # Inject apt config to disable Contents fetching into chroot
-          sudo mkdir -p build-system/cache/bootstrap
+          sudo mkdir -p build-system/config/includes.chroot/etc/apt/apt.conf.d
           echo 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";' | \
             sudo tee build-system/config/includes.chroot/etc/apt/apt.conf.d/99no-contents > /dev/null
 
