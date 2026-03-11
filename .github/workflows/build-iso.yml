@@ -60,15 +60,7 @@ jobs:
               echo "Patched defaults: $f"
             done
           echo "All casper patches done"
-          # Show which file has live-config-upstart and remove it
-          echo "=== Files with live-config-upstart ==="
-          grep -rn "live-config-upstart" /usr/lib/live/ /usr/share/live/ 2>/dev/null | head -20
-          sudo find /usr/lib/live/ /usr/share/live/ -type f -exec grep -l "live-config-upstart" {} \; 2>/dev/null | while read f; do
-            sudo sed -i "s/live-config-upstart//g" "$f"
-            echo "Fixed: $f"
-          done
-          echo "=== lb_chroot_live-packages full content ==="
-          cat /usr/lib/live/build/lb_chroot_live-packages 2>/dev/null | head -80
+          echo "live-config-upstart fix: using --initsystem systemd in lb config"
           sudo cp build-system/scripts/wget-wrapper.sh /usr/local/bin/wget
           sudo chmod +x /usr/local/bin/wget
           echo "Patches applied"
@@ -117,7 +109,8 @@ jobs:
             --linux-flavours amd64 \
             --firmware-binary true \
             --firmware-chroot false \
-            --apt-recommends false
+            --apt-recommends false \
+            --initsystem systemd
           echo "live-build configured"
 
       - name: Build ISO
