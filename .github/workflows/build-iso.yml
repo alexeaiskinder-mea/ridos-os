@@ -100,7 +100,7 @@ jobs:
             --linux-packages "linux-image" \
             --linux-flavours amd64 \
             --firmware-binary true \
-            --firmware-chroot true \
+            --firmware-chroot false \
             --apt-recommends false
           echo "live-build configured"
 
