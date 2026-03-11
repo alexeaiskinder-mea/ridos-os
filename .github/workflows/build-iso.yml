@@ -60,6 +60,12 @@ jobs:
               echo "Patched defaults: $f"
             done
           echo "All casper patches done"
+          # Remove live-config-upstart (not in Debian bookworm) from all live-build files
+          sudo find /usr/lib/live/ /usr/share/live/ -type f 2>/dev/null |             xargs grep -ln "live-config-upstart" 2>/dev/null | while read f; do
+              sudo sed -i 's/live-config-upstart[^ ]* \?//g' "$f"
+              echo "Removed live-config-upstart from: $f"
+            done
+          echo "live-config-upstart patches done"
           sudo cp build-system/scripts/wget-wrapper.sh /usr/local/bin/wget
           sudo chmod +x /usr/local/bin/wget
           echo "Patches applied"
