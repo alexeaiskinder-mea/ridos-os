@@ -26,7 +26,24 @@ jobs:
             curl wget ca-certificates python3 librsvg2-bin \
             debian-archive-keyring gnupg2
           lb --version
-          debootstrap --version
+
+      - name: Import Debian bookworm signing key
+        run: |
+          # Import the exact key that debootstrap needs: F8D2585B8783D481
+          sudo gpg --batch --no-tty \
+            --keyserver hkps://keyserver.ubuntu.com \
+            --recv-keys F8D2585B8783D481 || \
+          sudo gpg --batch --no-tty \
+            --keyserver hkps://keys.openpgp.org \
+            --recv-keys F8D2585B8783D481 || \
+          sudo gpg --batch --no-tty \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys F8D2585B8783D481
+          # Export to the keyring file used by debootstrap
+          sudo gpg --batch --no-tty \
+            --export F8D2585B8783D481 | \
+          sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null
+          echo "✓ Key imported"
 
       - name: Prepare directories
         run: |
@@ -45,8 +62,6 @@ jobs:
 
       - name: Configure live-build
         run: |
-          # Check available lb config options
-          lb config --help 2>&1 | grep -i "deboot\|keyring\|gpg" || true
           cd build-system
           sudo lb config \
             --distribution bookworm \
@@ -70,10 +85,6 @@ jobs:
             --firmware-chroot true \
             --apt-recommends false
           echo "configured"
-          # Patch debootstrap to skip GPG check
-          sudo sed -i 's/debootstrap /debootstrap --no-check-gpg /g' \
-            /usr/lib/live/build/bootstrap_debootstrap 2>/dev/null || true
-          echo "debootstrap patched"
 
       - name: Build ISO
         run: |
