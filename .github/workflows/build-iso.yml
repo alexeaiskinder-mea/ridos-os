@@ -26,6 +26,8 @@ jobs:
             curl wget ca-certificates python3 librsvg2-bin \
             debian-archive-keyring gnupg2
           lb --version
+          echo "=== ALL live-build scripts ==="
+          ls /usr/lib/live/build/ | grep -i "linux\|chroot\|install"
 
       - name: Import Debian bookworm signing key
         run: |
@@ -45,13 +47,11 @@ jobs:
           for f in $(grep -rln "casper" /usr/lib/live/build/ 2>/dev/null); do
             sudo sed -i 's/casper/live-boot/g' "$f"
           done
-          # Find and show the chroot_linux-image script
-          cat /usr/lib/live/build/chroot_linux-image | head -60
-          echo "---"
-          # Patch it to write apt config before running apt
-          sudo sed -i '/^Chroot/a mkdir -p "${CHROOT}/etc/apt/apt.conf.d" 2>/dev/null; echo '"'"'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";'"'"' | chroot "${CHROOT}" tee /etc/apt/apt.conf.d/99no-contents > /dev/null 2>&1 || true' \
-            /usr/lib/live/build/chroot_linux-image 2>/dev/null || true
-          echo "Patched chroot_linux-image"
+          echo "=== Scripts containing 'linux-image' ==="
+          grep -rln "linux-image" /usr/lib/live/build/ 2>/dev/null || echo "none"
+          echo "=== Scripts containing 'Contents' ==="
+          grep -rln "Contents" /usr/lib/live/build/ 2>/dev/null || echo "none"
+          echo "Patched"
 
       - name: Prepare directories
         run: |
@@ -99,8 +99,6 @@ jobs:
             --firmware-chroot true \
             --apt-recommends false
           echo "configured"
-          # Show what chroot_linux-image looks like now
-          head -20 /usr/lib/live/build/chroot_linux-image
 
       - name: Build ISO
         run: |
