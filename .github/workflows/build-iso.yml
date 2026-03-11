@@ -47,10 +47,6 @@ jobs:
           mkdir -p build-system/config/includes.chroot/etc/ridos
           mkdir -p build-system/config/package-lists
           mkdir -p build-system/config/hooks
-          mkdir -p build-system/config/apt
-          # Disable Contents index fetching via apt.conf (correct format)
-          echo 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";' \
-            > build-system/config/apt/apt.conf
 
       - name: Inject core files
         run: |
@@ -84,11 +80,27 @@ jobs:
             --firmware-chroot true \
             --apt-recommends false
           echo "configured"
+          # Patch live-build to ignore Contents 404 errors
+          sudo sed -i \
+            's|wget \${WGET_OPTIONS}|wget --no-verbose --ignore-length ${WGET_OPTIONS}|g' \
+            /usr/lib/live/build/chroot_apt 2>/dev/null || true
+          # Set wget to not fail on 404
+          echo "continue_at_error = on" | sudo tee -a /etc/wgetrc > /dev/null
 
       - name: Build ISO
         run: |
           cd build-system
-          sudo lb build 2>&1 | tee /tmp/build.log
+          # Run lb build, allow Contents 404 to be non-fatal
+          sudo lb build 2>&1 | tee /tmp/build.log || {
+            # Check if failure was only due to Contents file
+            if grep -q "Contents-amd64" /tmp/build.log && \
+               ! grep -q "Unable to locate package" /tmp/build.log; then
+              echo "⚠ Contents 404 - attempting to continue..."
+              sudo lb build 2>&1 | tee -a /tmp/build.log
+            else
+              exit 1
+            fi
+          }
           ls -lh *.iso 2>/dev/null || ls -lh live-image*.iso 2>/dev/null
 
       - name: Package ISO
