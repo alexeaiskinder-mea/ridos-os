@@ -1,0 +1,6 @@
+#!/bin/sh
+mkdir -p /etc/apt/apt.conf.d
+cat > /etc/apt/apt.conf.d/99no-contents << 'APTEOF'
+Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";
+Acquire::IndexTargets::deb-src::Contents-deb::DefaultEnabled "false";
+APTEOF

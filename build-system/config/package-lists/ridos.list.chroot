@@ -1,8 +1,7 @@
-# RIDOS OS v1.1 — Package List
-# Copyright (C) 2026 RIDOS OS Project — GPL v3
-# Debian Bookworm packages only
+# RIDOS OS v1.1 - Debian Bookworm Package List
+# GPL v3 - RIDOS OS Project
 
-# ── System Base ────────────────────────────────────────────────
+# System Base
 systemd
 systemd-sysv
 dbus
@@ -15,12 +14,12 @@ util-linux
 procps
 psmisc
 
-# ── Boot ───────────────────────────────────────────────────────
+# Boot
 grub-pc
 os-prober
 plymouth
 
-# ── Hardware Firmware ──────────────────────────────────────────
+# Hardware Firmware
 firmware-linux
 firmware-linux-nonfree
 firmware-misc-nonfree
@@ -28,7 +27,13 @@ firmware-realtek
 firmware-atheros
 firmware-iwlwifi
 
-# ── Networking Core ────────────────────────────────────────────
+# Live System (Debian)
+live-boot
+live-boot-initramfs-tools
+live-config
+live-config-systemd
+
+# Networking
 network-manager
 wpasupplicant
 wireless-tools
@@ -37,11 +42,10 @@ rfkill
 net-tools
 iproute2
 iputils-ping
-iputils-tracepath
 dnsutils
 avahi-daemon
 
-# ── IT Network Tools ──────────────────────────────────────────
+# IT Network Tools
 nmap
 wireshark
 tcpdump
@@ -53,85 +57,64 @@ fping
 mtr-tiny
 socat
 
-# ── Remote Access ─────────────────────────────────────────────
+# Remote Access
 openssh-client
 openssh-server
-remmina
 sshpass
 screen
 tmux
 
-# ── Security Tools ────────────────────────────────────────────
+# Security
 ufw
 iptables
-clamav
-chkrootkit
-lynis
-fail2ban
 openssl
 gpg
+fail2ban
 
-# ── Development ───────────────────────────────────────────────
+# Development
 python3
 python3-pip
 python3-venv
 python3-dev
-gcc
-g++
-make
-cmake
 git
 curl
 wget
 build-essential
 
-# ── Text Editors ──────────────────────────────────────────────
+# Editors
 neovim
 nano
 
-# ── Shell & Terminal ──────────────────────────────────────────
+# Terminal
 xterm
 
-# ── File Management ───────────────────────────────────────────
+# File Management
 zip
 unzip
-tar
-gzip
-bzip2
 rsync
 
-# ── System Monitoring ─────────────────────────────────────────
+# Monitoring
 htop
 iotop
 iftop
 nethogs
-sysstat
 lsof
 
-# ── Desktop (XFCE) ────────────────────────────────────────────
+# Desktop (XFCE)
 xfce4
 xfce4-terminal
 xfce4-screenshooter
-xfce4-whiskermenu-plugin
-xfce4-cpugraph-plugin
-xfce4-netload-plugin
 lightdm
 lightdm-gtk-greeter
 xorg
 
-# ── GUI Apps ──────────────────────────────────────────────────
+# GUI Apps
 firefox-esr
 thunar
 mousepad
 
-# ── Fonts & Locale ────────────────────────────────────────────
+# Fonts & Locale
 fonts-dejavu
 fonts-liberation
 locales
 tzdata
-
-# ── Live System (Debian) ───────────────────────────────────────
-live-boot
-live-boot-initramfs-tools
-live-config
-live-config-systemd

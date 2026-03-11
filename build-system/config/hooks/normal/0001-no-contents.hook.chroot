@@ -1,0 +1,5 @@
+#!/bin/sh
+# Disable Contents index fetching inside chroot
+mkdir -p /etc/apt/apt.conf.d
+printf 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";\n' \
+  > /etc/apt/apt.conf.d/99no-contents

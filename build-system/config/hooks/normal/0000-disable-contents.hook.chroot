@@ -1,0 +1,7 @@
+#!/bin/sh
+# Disable Contents index fetching to avoid 404 errors
+echo 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";' \
+  > /etc/apt/apt.conf.d/99no-contents
+echo 'Acquire::IndexTargets::deb-src::Contents-deb::DefaultEnabled "false";' \
+  >> /etc/apt/apt.conf.d/99no-contents
+apt-get update -qq

@@ -40,25 +40,40 @@ jobs:
           sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null
           echo "Key imported"
 
-      - name: Patch live-build for Debian
+      - name: Patch live-build for Debian compatibility
         run: |
+          # Replace casper (Ubuntu) with live-boot (Debian)
           for f in $(grep -rln "casper" /usr/lib/live/build/ 2>/dev/null); do
             sudo sed -i 's/casper/live-boot/g' "$f"
+            echo "Patched casper in $f"
           done
-          # Patch lb_chroot_linux-image to write apt.conf into chroot before apt-get update
-          LB_LINUX="/usr/lib/live/build/lb_chroot_linux-image"
-          if [ -f "$LB_LINUX" ]; then
-            # Find the line with first Chroot_Apt or apt-get call and insert before it
-            LINENUM=$(grep -n "Chroot_Apt\|apt-get\|Apt " "$LB_LINUX" | head -1 | cut -d: -f1)
-            echo "First apt call at line $LINENUM"
-            if [ -n "$LINENUM" ]; then
-              sudo sed -i "${LINENUM}i # Disable Contents index\nmkdir -p \"\${CHROOT}/etc/apt/apt.conf.d\"\necho 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled \"false\";' > \"\${CHROOT}/etc/apt/apt.conf.d/99no-contents\"" "$LB_LINUX"
-              echo "Patched at line $LINENUM"
-            fi
-          fi
-          echo "Done patching"
+          # Create wget wrapper to silently handle Contents-amd64.gz 404
+          sudo tee /usr/local/bin/wget > /dev/null << 'WGETEOF'
+#!/bin/bash
+REAL_WGET=/usr/bin/wget
+ARGS=("$@")
+# Check if downloading a Contents file
+for arg in "${ARGS[@]}"; do
+  if [[ "$arg" == *"Contents"* ]]; then
+    # Find -O output file
+    for i in "${!ARGS[@]}"; do
+      if [[ "${ARGS[$i]}" == "-O" ]]; then
+        OUTFILE="${ARGS[$((i+1))]}"
+        if [ -n "$OUTFILE" ]; then
+          printf '\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00' > "$OUTFILE"
+        fi
+        exit 0
+      fi
+    done
+    exit 0
+  fi
+done
+exec "$REAL_WGET" "$@"
+WGETEOF
+          sudo chmod +x /usr/local/bin/wget
+          echo "wget wrapper installed: $(which wget)"
 
-      - name: Prepare directories
+      - name: Prepare build directories
         run: |
           mkdir -p build-system/config/includes.chroot/opt/ridos/bin
           mkdir -p build-system/config/includes.chroot/usr/share/ridos
@@ -66,18 +81,20 @@ jobs:
           mkdir -p build-system/config/includes.chroot/etc/apt/apt.conf.d
           mkdir -p build-system/config/package-lists
           mkdir -p build-system/config/hooks/normal
+          # Disable Contents index inside chroot
           printf 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";\n' \
             > build-system/config/includes.chroot/etc/apt/apt.conf.d/99no-contents
+          # Hook that disables Contents from inside chroot
           printf '#!/bin/sh\nmkdir -p /etc/apt/apt.conf.d\nprintf "Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled \\"false\\";\\n" > /etc/apt/apt.conf.d/99no-contents\n' \
             > build-system/config/hooks/normal/0001-no-contents.hook.chroot
           chmod +x build-system/config/hooks/normal/0001-no-contents.hook.chroot
 
-      - name: Inject core files
+      - name: Inject RIDOS core files
         run: |
           cp ridos-core/*.py build-system/config/includes.chroot/opt/ridos/bin/
           cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
              build-system/config/includes.chroot/usr/share/ridos/
-          echo "done"
+          echo "Core files injected"
 
       - name: Configure live-build
         run: |
@@ -103,7 +120,7 @@ jobs:
             --firmware-binary true \
             --firmware-chroot true \
             --apt-recommends false
-          echo "configured"
+          echo "live-build configured"
 
       - name: Build ISO
         run: |
@@ -123,6 +140,7 @@ jobs:
           mv "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
           cd ..
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+          echo "ISO ready: $(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso)"
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
@@ -150,7 +168,7 @@ jobs:
             ## RIDOS OS ${{ github.ref_name }} "Baghdad"
             AI-powered Linux distro for IT professionals.
             Flash with Balena Etcher or dd.
-            Copyright (C) 2026 RIDOS OS Project — GPL v3
+            GPL v3 — Copyright (C) 2026 RIDOS OS Project
           files: |
             ridos-os-1.1.0-Baghdad-x86_64.iso
             ridos-os-1.1.0-Baghdad-x86_64.iso.md5
