@@ -94,7 +94,7 @@ jobs:
             --iso-volume "RIDOS_OS_1.1" \
             --iso-publisher "RIDOS OS Project" \
             --iso-application "RIDOS OS v1.1 Baghdad" \
-            --linux-packages "linux-image-amd64" \
+            --linux-packages "linux-image" \
             --linux-flavours amd64 \
             --firmware-binary true \
             --firmware-chroot true \
