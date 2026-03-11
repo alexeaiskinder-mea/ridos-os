@@ -26,8 +26,14 @@ jobs:
             curl wget ca-certificates python3 librsvg2-bin \
             debian-archive-keyring gnupg2
           lb --version
-          echo "=== lb_chroot_linux-image script ==="
-          cat /usr/lib/live/build/lb_chroot_linux-image || echo "NOT FOUND"
+          echo "=== ALL live-build scripts with linux or image ==="
+          ls /usr/lib/live/build/ | grep -iE "linux|image|kernel"
+          echo "=== Script that contains Contents ==="
+          grep -rln "Contents" /usr/lib/live/build/ 2>/dev/null || echo "none"
+          echo "=== lb_chroot_linux-image ==="
+          find /usr/lib/live/build/ -name "*linux*" -o -name "*image*" 2>/dev/null
+          cat /usr/lib/live/build/lb_chroot_linux-image 2>/dev/null || echo "NOT FOUND AT THIS PATH"
+          ls /usr/lib/live/build/ | grep chroot | head -30
 
       - name: Import Debian bookworm signing key
         run: |
