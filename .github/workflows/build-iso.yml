@@ -99,7 +99,6 @@ jobs:
             --firmware-binary true \
             --firmware-chroot true \
             --apt-recommends false \
-            --live-packages "live-boot live-boot-initramfs-tools live-config live-config-systemd"
           echo "configured"
 
       - name: Build ISO

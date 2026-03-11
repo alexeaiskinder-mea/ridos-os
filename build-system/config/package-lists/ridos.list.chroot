@@ -129,3 +129,9 @@ fonts-dejavu
 fonts-liberation
 locales
 tzdata
+
+# ── Live System (Debian) ───────────────────────────────────────
+live-boot
+live-boot-initramfs-tools
+live-config
+live-config-systemd
