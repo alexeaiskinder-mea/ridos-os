@@ -111,8 +111,7 @@ jobs:
             --firmware-binary true \
             --firmware-chroot false \
             --apt-recommends false \
-            --initsystem systemd \
-            --syslinux false
+            --initsystem systemd
           echo "live-build configured"
 
       - name: Build ISO
@@ -120,6 +119,9 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           cd build-system
+          # Disable lb_binary_syslinux entirely by making it exit early
+          sudo sed -i '2i exit 0' /usr/lib/live/build/lb_binary_syslinux
+          echo "lb_binary_syslinux disabled"
           sudo -E lb build 2>&1 | tee /tmp/build.log
           ls -lh *.iso 2>/dev/null || ls -lh live-image*.iso 2>/dev/null
 
