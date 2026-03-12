@@ -49,13 +49,19 @@ jobs:
             done
           sudo cp build-system/scripts/wget-wrapper.sh /usr/local/bin/wget
           sudo chmod +x /usr/local/bin/wget
-          # Fix lb_binary_syslinux: remove Ubuntu-only theme packages but KEEP the rest
-          # so the boot sector gets written properly
-          sudo sed -i 's/syslinux-themes-ubuntu-oneiric//g' /usr/lib/live/build/lb_binary_syslinux
-          sudo sed -i 's/gfxboot-theme-ubuntu//g' /usr/lib/live/build/lb_binary_syslinux
+          # Show exact lines with ubuntu theme in syslinux script
+          grep -n "ubuntu\|oneiric\|gfxboot" /usr/lib/live/build/lb_binary_syslinux | head -20
+          # Remove ALL lines containing ubuntu theme package names
           sudo sed -i '/syslinux-themes-ubuntu/d' /usr/lib/live/build/lb_binary_syslinux
-          # Create a fake syslinux-themes-ubuntu-oneiric to satisfy any remaining deps
-          sudo mkdir -p /usr/share/syslinux/themes/debian-bookworm
+          sudo sed -i '/gfxboot-theme-ubuntu/d' /usr/lib/live/build/lb_binary_syslinux
+          sudo sed -i '/oneiric/d' /usr/lib/live/build/lb_binary_syslinux
+          # Also remove them inline from package list variables
+          sudo sed -i 's/ syslinux-themes-ubuntu-oneiric//g' /usr/lib/live/build/lb_binary_syslinux
+          sudo sed -i 's/ gfxboot-theme-ubuntu//g' /usr/lib/live/build/lb_binary_syslinux
+          sudo sed -i 's/syslinux-themes-ubuntu-oneiric //g' /usr/lib/live/build/lb_binary_syslinux
+          sudo sed -i 's/gfxboot-theme-ubuntu //g' /usr/lib/live/build/lb_binary_syslinux
+          echo "Remaining ubuntu refs in syslinux script:"
+          grep -n "ubuntu\|oneiric\|gfxboot" /usr/lib/live/build/lb_binary_syslinux | head -10 || echo "NONE - clean!"
           echo "All patches done"
 
       - name: Prepare build directories
