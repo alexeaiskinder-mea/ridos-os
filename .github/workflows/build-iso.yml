@@ -169,13 +169,7 @@ jobs:
 
       - name: Create GitHub Release on tag
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
-        with:
-          name: "RIDOS OS ${{ github.ref_name }} Baghdad"
-          body: |
-            ## RIDOS OS ${{ github.ref_name }} "Baghdad"
-            AI-powered Linux distro for IT professionals.
-            GPL v3 - Copyright (C) 2026 RIDOS OS Project
-          files: |
-            ridos-os-1.1.0-Baghdad-x86_64.iso
-            ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+        run: |
+          gh release create "${{ github.ref_name }}"             ridos-os-1.1.0-Baghdad-x86_64.iso             ridos-os-1.1.0-Baghdad-x86_64.iso.md5             --title "RIDOS OS ${{ github.ref_name }} Baghdad"             --notes "RIDOS OS AI-powered Linux distro. GPL v3."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
