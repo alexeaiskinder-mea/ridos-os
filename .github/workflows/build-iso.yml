@@ -150,16 +150,24 @@ jobs:
       - name: Package ISO
         run: |
           cd build-system
-          ISO=$(ls live-image*.iso 2>/dev/null | head -1)
+          echo "=== Searching for ISO files ==="
+          find . -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
+          find .. -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
+          ISO=$(find . -name "*.iso" 2>/dev/null | head -1)
           if [ -z "$ISO" ]; then
-            echo "ERROR: No ISO found"
-            tail -100 /tmp/build.log
+            ISO=$(find . -name "*.img" 2>/dev/null | head -1)
+          fi
+          if [ -z "$ISO" ]; then
+            echo "ERROR: No ISO/IMG found. Listing directory:"
+            ls -lah .
+            ls -lah .. 2>/dev/null || true
             exit 1
           fi
-          mv "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
+          echo "Found: $ISO"
+          cp "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
           cd ..
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
-          echo "ISO ready"
+          echo "ISO ready: $(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso)"
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
