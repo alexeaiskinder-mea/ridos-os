@@ -1,4 +1,0 @@
-APT::Get::Assume-Yes "true";
-APT::Get::force-yes "false";
-DPkg::Options:: "--force-confnew";
-DPkg::Options:: "--force-confdef";
