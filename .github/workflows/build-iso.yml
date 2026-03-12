@@ -20,21 +20,12 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
-            syslinux syslinux-common isolinux \
-            live-build debootstrap squashfs-tools xorriso \
-            grub-pc-bin grub-efi-amd64-bin grub2-common \
-            mtools dosfstools isolinux syslinux-common \
+            live-build debootstrap squashfs-tools \
+            xorriso grub-pc-bin grub-efi-amd64-bin grub2-common \
+            mtools dosfstools syslinux syslinux-common isolinux \
             curl wget ca-certificates python3 librsvg2-bin \
             debian-archive-keyring gnupg2
           lb --version
-          echo "=== ALL live-build scripts with linux or image ==="
-          ls /usr/lib/live/build/ | grep -iE "linux|image|kernel"
-          echo "=== Script that contains Contents ==="
-          grep -rln "Contents" /usr/lib/live/build/ 2>/dev/null || echo "none"
-          echo "=== lb_chroot_linux-image ==="
-          find /usr/lib/live/build/ -name "*linux*" -o -name "*image*" 2>/dev/null
-          cat /usr/lib/live/build/lb_chroot_linux-image 2>/dev/null || echo "NOT FOUND AT THIS PATH"
-          ls /usr/lib/live/build/ | grep chroot | head -30
 
       - name: Import Debian bookworm signing key
         run: |
@@ -44,39 +35,28 @@ jobs:
           sudo gpg --batch --no-tty \
             --keyserver hkp://keyserver.ubuntu.com:80 \
             --recv-keys F8D2585B8783D481
-          sudo gpg --batch --no-tty \
-            --export F8D2585B8783D481 | \
-          sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null
+          sudo gpg --batch --no-tty --export F8D2585B8783D481 | \
+            sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null
           echo "Key imported"
 
       - name: Patch live-build for Debian compatibility
         run: |
+          # Replace casper with live-boot everywhere
           for f in $(grep -rln "casper" /usr/lib/live/build/ 2>/dev/null); do
             sudo sed -i 's/casper/live-boot/g' "$f"
           done
-          sudo find /usr/lib/live/ /usr/share/live/ -name "*.sh" -o -name "defaults" 2>/dev/null | xargs grep -ln "casper" 2>/dev/null | while read f; do
-            sudo sed -i 's/casper/live-boot/g' "$f"
-          done
-          echo "All casper patches done"
+          sudo find /usr/lib/live/ /usr/share/live/ -name "*.sh" -o -name "defaults" 2>/dev/null | \
+            xargs grep -ln "casper" 2>/dev/null | while read f; do
+              sudo sed -i 's/casper/live-boot/g' "$f"
+            done
+          # wget wrapper for Contents-amd64.gz 404
           sudo cp build-system/scripts/wget-wrapper.sh /usr/local/bin/wget
           sudo chmod +x /usr/local/bin/wget
-          echo "live-config-upstart fix: using --initsystem systemd in lb config"
-          sudo sed -i '2i exit 0' /usr/lib/live/build/lb_binary_syslinux
-          echo "lb_binary_syslinux disabled"
-          LB_ISO="/usr/lib/live/build/lb_binary_iso"
-          if [ -f "$LB_ISO" ]; then
-            sudo sed -i 's/isohybrid/true #isohybrid/g' "$LB_ISO"
-            sudo sed -i 's/-b isolinux\/isolinux.bin//g' "$LB_ISO"
-            sudo sed -i 's/-c isolinux\/boot.cat//g' "$LB_ISO"
-            sudo sed -i 's/-no-emul-boot//g' "$LB_ISO"
-            sudo sed -i 's/-boot-load-size 4//g' "$LB_ISO"
-            sudo sed -i 's/-boot-info-table//g' "$LB_ISO"
-            echo "Patched lb_binary_iso"
-          fi
+          # Remove Ubuntu-only syslinux theme from lb_binary_syslinux
+          sudo sed -i 's/syslinux-themes-ubuntu-oneiric//g' /usr/lib/live/build/lb_binary_syslinux
+          sudo sed -i 's/gfxboot-theme-ubuntu//g' /usr/lib/live/build/lb_binary_syslinux
+          sudo sed -i 's/syslinux-themes-ubuntu[a-z-]*//g' /usr/lib/live/build/lb_binary_syslinux
           echo "All patches done"
-
-      - name: Make ISO bootable with xorriso after build
-        run: echo "Post-process step ready"
 
       - name: Prepare build directories
         run: |
@@ -88,8 +68,12 @@ jobs:
           mkdir -p build-system/config/hooks/normal
           printf 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";\n' \
             > build-system/config/includes.chroot/etc/apt/apt.conf.d/99no-contents
-          printf '#!/bin/sh\nmkdir -p /etc/apt/apt.conf.d\nprintf "Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled false;\n" > /etc/apt/apt.conf.d/99no-contents\n' \
-            > build-system/config/hooks/normal/0001-no-contents.hook.chroot
+          cat > build-system/config/hooks/normal/0001-no-contents.hook.chroot << 'EOF'
+          #!/bin/sh
+          mkdir -p /etc/apt/apt.conf.d
+          printf 'Acquire::IndexTargets::deb::Contents-deb::DefaultEnabled "false";\n' \
+            > /etc/apt/apt.conf.d/99no-contents
+          EOF
           chmod +x build-system/config/hooks/normal/0001-no-contents.hook.chroot
 
       - name: Inject RIDOS core files
@@ -100,6 +84,8 @@ jobs:
           echo "Core files injected"
 
       - name: Configure live-build
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           cd build-system
           sudo lb config \
@@ -113,6 +99,7 @@ jobs:
             --keyring-packages "debian-archive-keyring" \
             --archive-areas "main contrib non-free non-free-firmware" \
             --binary-images iso-hybrid \
+            --bootloaders "grub-pc" \
             --debian-installer false \
             --memtest none \
             --iso-volume "RIDOS_OS_1.1" \
@@ -120,8 +107,8 @@ jobs:
             --iso-application "RIDOS OS v1.1 Baghdad" \
             --linux-packages "linux-image" \
             --linux-flavours amd64 \
-            --firmware-binary true \
             --firmware-chroot false \
+            --firmware-binary false \
             --apt-recommends false \
             --initsystem systemd
           echo "live-build configured"
@@ -131,58 +118,24 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           cd build-system
-          # Disable lb_binary_syslinux entirely by making it exit early
-          sudo sed -i '2i exit 0' /usr/lib/live/build/lb_binary_syslinux
-          echo "lb_binary_syslinux disabled"
-          # Fix genisoimage needing isolinux dir and isohybrid
-          # Patch lb_binary_iso to create isolinux dir if missing and skip isohybrid
-          sudo sed -i 's/isohybrid/true || isohybrid/g' /usr/lib/live/build/lb_binary_iso 2>/dev/null || true
-          sudo sed -i 's/isohybrid/true || isohybrid/g' /usr/lib/live/build/binary.sh 2>/dev/null || true
-          # Find and patch the script that calls isohybrid
-          grep -rln "isohybrid" /usr/lib/live/build/ 2>/dev/null | while read f; do
-            sudo sed -i "s/isohybrid/true #isohybrid/g" "$f"
-            echo "Patched isohybrid in $f"
-          done
-          echo "isohybrid patched"
           sudo -E lb build 2>&1 | tee /tmp/build.log
-          ls -lh *.iso 2>/dev/null || ls -lh live-image*.iso 2>/dev/null
+          echo "=== ISO files found ==="
+          find . -name "*.iso" -o -name "*.img" 2>/dev/null
 
       - name: Package ISO
         run: |
           cd build-system
-          echo "=== Searching for ISO files ==="
-          find . -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
           ISO=$(find . -name "*.iso" 2>/dev/null | head -1)
           if [ -z "$ISO" ]; then
-            ISO=$(find . -name "*.img" 2>/dev/null | head -1)
-          fi
-          if [ -z "$ISO" ]; then
-            echo "ERROR: No ISO/IMG found"
-            ls -lah .
+            echo "ERROR: No ISO found"
+            tail -50 /tmp/build.log
             exit 1
           fi
           echo "Found: $ISO ($(du -sh $ISO | cut -f1))"
-          # Make ISO bootable using xorriso to embed GRUB MBR boot code
-          OUTISO="../ridos-os-1.1.0-Baghdad-x86_64.iso"
-          xorriso -as mkisofs \
-            -r -J -joliet-long \
-            -b boot/grub/i386-pc/eltorito.img \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            --grub2-boot-info \
-            --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-            -partition_offset 16 \
-            -o "$OUTISO" \
-            -graft-points \
-            /=. \
-            2>/dev/null || \
-          xorriso -as mkisofs \
-            -r -J -joliet-long \
-            -o "$OUTISO" \
-            . 2>/dev/null || \
-          cp "$ISO" "$OUTISO"
+          cp "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
           cd ..
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
-          echo "ISO ready: $(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso)"
+          echo "Done: $(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso)"
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
@@ -204,6 +157,10 @@ jobs:
       - name: Create GitHub Release on tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          gh release create "${{ github.ref_name }}"             ridos-os-1.1.0-Baghdad-x86_64.iso             ridos-os-1.1.0-Baghdad-x86_64.iso.md5             --title "RIDOS OS ${{ github.ref_name }} Baghdad"             --notes "RIDOS OS AI-powered Linux distro. GPL v3."
+          gh release create "${{ github.ref_name }}" \
+            ridos-os-1.1.0-Baghdad-x86_64.iso \
+            ridos-os-1.1.0-Baghdad-x86_64.iso.md5 \
+            --title "RIDOS OS ${{ github.ref_name }} Baghdad" \
+            --notes "RIDOS OS AI-powered Linux distro. GPL v3."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
