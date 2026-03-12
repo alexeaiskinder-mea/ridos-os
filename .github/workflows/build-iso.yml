@@ -53,17 +53,14 @@ jobs:
         run: |
           for f in $(grep -rln "casper" /usr/lib/live/build/ 2>/dev/null); do
             sudo sed -i 's/casper/live-boot/g' "$f"
-            echo "Patched casper: $f"
           done
           sudo find /usr/lib/live/ /usr/share/live/ -name "*.sh" -o -name "defaults" 2>/dev/null | xargs grep -ln "casper" 2>/dev/null | while read f; do
             sudo sed -i 's/casper/live-boot/g' "$f"
-            echo "Patched defaults: $f"
           done
           echo "All casper patches done"
-          echo "Syslinux disabled - using GRUB only"
-          echo "live-config-upstart fix: using --initsystem systemd in lb config"
           sudo cp build-system/scripts/wget-wrapper.sh /usr/local/bin/wget
           sudo chmod +x /usr/local/bin/wget
+          echo "live-config-upstart fix: using --initsystem systemd in lb config"
           sudo sed -i '2i exit 0' /usr/lib/live/build/lb_binary_syslinux
           echo "lb_binary_syslinux disabled"
           LB_ISO="/usr/lib/live/build/lb_binary_iso"
@@ -77,6 +74,9 @@ jobs:
             echo "Patched lb_binary_iso"
           fi
           echo "All patches done"
+
+      - name: Make ISO bootable with xorriso after build
+        run: echo "Post-process step ready"
 
       - name: Prepare build directories
         run: |
@@ -152,19 +152,34 @@ jobs:
           cd build-system
           echo "=== Searching for ISO files ==="
           find . -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
-          find .. -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
           ISO=$(find . -name "*.iso" 2>/dev/null | head -1)
           if [ -z "$ISO" ]; then
             ISO=$(find . -name "*.img" 2>/dev/null | head -1)
           fi
           if [ -z "$ISO" ]; then
-            echo "ERROR: No ISO/IMG found. Listing directory:"
+            echo "ERROR: No ISO/IMG found"
             ls -lah .
-            ls -lah .. 2>/dev/null || true
             exit 1
           fi
-          echo "Found: $ISO"
-          cp "$ISO" "../ridos-os-1.1.0-Baghdad-x86_64.iso"
+          echo "Found: $ISO ($(du -sh $ISO | cut -f1))"
+          # Make ISO bootable using xorriso to embed GRUB MBR boot code
+          OUTISO="../ridos-os-1.1.0-Baghdad-x86_64.iso"
+          xorriso -as mkisofs \
+            -r -J -joliet-long \
+            -b boot/grub/i386-pc/eltorito.img \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            --grub2-boot-info \
+            --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
+            -partition_offset 16 \
+            -o "$OUTISO" \
+            -graft-points \
+            /=. \
+            2>/dev/null || \
+          xorriso -as mkisofs \
+            -r -J -joliet-long \
+            -o "$OUTISO" \
+            . 2>/dev/null || \
+          cp "$ISO" "$OUTISO"
           cd ..
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
           echo "ISO ready: $(du -sh ridos-os-1.1.0-Baghdad-x86_64.iso)"
