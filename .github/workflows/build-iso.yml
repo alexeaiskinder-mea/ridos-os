@@ -1,9 +1,9 @@
 bash
 
-cat /home/claude/build-iso.yml
+ cat /home/claude/build-iso.yml
 Output
 
-name: Build RIDOS OS ISO
+ name: Build RIDOS OS ISO
 
 on:
   push:
