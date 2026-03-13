@@ -85,7 +85,18 @@ jobs:
 
           # Set up live-boot
           echo "LIVE_BOOT_CMDLINE=boot=live quiet splash" | sudo tee chroot/etc/live/boot.conf 2>/dev/null || true
-
+          # Install all packages inside chroot
+          sudo chroot chroot apt-get update -qq
+          sudo chroot chroot apt-get install -y \
+            live-boot live-boot-initramfs-tools \
+            linux-image-amd64 initramfs-tools \
+            grub-pc grub2-common \
+            xfce4 xfce4-terminal \
+            network-manager \
+            python3 python3-pip \
+            xterm vim nano curl wget git \
+            fonts-dejavu
+          echo "Packages installed"
       - name: Install RIDOS core files
         run: |
           sudo mkdir -p chroot/opt/ridos/bin
