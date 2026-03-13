@@ -38,7 +38,7 @@ jobs:
           PKGS="$PKGS,linux-image-amd64,initramfs-tools"
           PKGS="$PKGS,grub-pc,grub2-common"
           PKGS="$PKGS,xfce4,xfce4-terminal"
-          PKGS="$PKGS,network-manager,network-manager-gnome"
+          PKGS="$PKGS,network-manager"
           PKGS="$PKGS,python3,python3-pip"
           PKGS="$PKGS,xterm,vim,nano,curl,wget,git"
           PKGS="$PKGS,sudo,bash,locales,tzdata"
