@@ -1,3 +1,8 @@
+bash
+
+cat /home/claude/build-iso.yml
+Output
+
 name: Build RIDOS OS ISO
 
 on:
@@ -29,63 +34,23 @@ jobs:
 
       - name: Bootstrap Debian chroot
         run: |
-          # Download Debian bookworm signing key fresh
           curl -fsSL https://ftp-master.debian.org/keys/release-12.asc \
             | sudo gpg --dearmor -o /usr/share/keyrings/debian-bookworm.gpg
-
-         # Bootstrap with minimal packages only
-              sudo debootstrap \
+          sudo debootstrap \
             --arch=amd64 \
             --variant=minbase \
             --keyring=/usr/share/keyrings/debian-bookworm.gpg \
-            --include="systemd,systemd-sysv,udev,sudo,locales,tzdata" \
-            bookworm \
-            chroot \
-            http://deb.debian.org/debian/
-          echo "Bootstrap done"
-            --arch=amd64 \
-           --variant=minbase \
-           --keyring=/usr/share/keyrings/debian-archive-keyring.gpg \
-            --include=systemd,systemd-sysv,udev,live-boot,live-boot-initramfs-tools,\
-          linux-image-amd64,initramfs-tools,\
-          grub-pc,grub2-common,\
-          xfce4,xfce4-terminal,xfce4-whiskermenu-plugin,\
-          network-manager,network-manager-gnome,\
-          firefox-esr,\
-          python3,python3-pip,python3-flask,python3-flask-socketio,\
-          xterm,vim,nano,curl,wget,git,\
-          sudo,bash,locales,tzdata,\
-          fonts-dejavu,task-xfce-desktop \
+            --include="systemd,systemd-sysv,udev,sudo,locales,tzdata,bash" \
             bookworm \
             chroot \
             http://deb.debian.org/debian/
           echo "Bootstrap done"
 
-      - name: Configure chroot system
+      - name: Install packages in chroot
         run: |
-          # Set hostname
-          echo "ridos-os" | sudo tee chroot/etc/hostname
-
-          # Set locale
-          echo "en_US.UTF-8 UTF-8" | sudo tee chroot/etc/locale.gen
-          sudo chroot chroot locale-gen
-
-          # Create ridos user
-          sudo chroot chroot useradd -m -s /bin/bash -G sudo ridos
-          echo "ridos:ridos" | sudo chroot chroot chpasswd
-          echo "root:ridos" | sudo chroot chroot chpasswd
-
-          # Auto-login for live session
-          sudo mkdir -p chroot/etc/systemd/system/getty@tty1.service.d
-          sudo tee chroot/etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOF'
-          [Service]
-          ExecStart=
-          ExecStart=-/sbin/agetty --autologin ridos --noclear %I $TERM
-          EOF
-
-          # Set up live-boot
-          echo "LIVE_BOOT_CMDLINE=boot=live quiet splash" | sudo tee chroot/etc/live/boot.conf 2>/dev/null || true
-          # Install all packages inside chroot
+          sudo mount --bind /dev chroot/dev
+          sudo mount --bind /proc chroot/proc
+          sudo mount --bind /sys chroot/sys
           sudo chroot chroot apt-get update -qq
           sudo chroot chroot apt-get install -y \
             live-boot live-boot-initramfs-tools \
@@ -96,115 +61,86 @@ jobs:
             python3 python3-pip \
             xterm vim nano curl wget git \
             fonts-dejavu
+          sudo umount chroot/sys chroot/proc chroot/dev
           echo "Packages installed"
+
+      - name: Configure chroot system
+        run: |
+          echo "ridos-os" | sudo tee chroot/etc/hostname
+          echo "en_US.UTF-8 UTF-8" | sudo tee chroot/etc/locale.gen
+          sudo chroot chroot locale-gen
+          sudo chroot chroot useradd -m -s /bin/bash -G sudo ridos
+          echo "ridos:ridos" | sudo chroot chroot chpasswd
+          echo "root:ridos" | sudo chroot chroot chpasswd
+          sudo mkdir -p chroot/etc/systemd/system/getty@tty1.service.d
+          printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin ridos --noclear %%I $TERM\n' \
+            | sudo tee chroot/etc/systemd/system/getty@tty1.service.d/autologin.conf
+          echo "System configured"
+
       - name: Install RIDOS core files
         run: |
           sudo mkdir -p chroot/opt/ridos/bin
           sudo mkdir -p chroot/usr/share/ridos
           sudo cp ridos-core/*.py chroot/opt/ridos/bin/
+          sudo chmod +x chroot/opt/ridos/bin/*.py
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
                chroot/usr/share/ridos/
-          # Make scripts executable
-          sudo chmod +x chroot/opt/ridos/bin/*.py
+          echo "RIDOS files installed"
 
       - name: Build squashfs filesystem
         run: |
           sudo mksquashfs chroot filesystem.squashfs \
-            -comp xz \
-            -e boot \
-            -noappend
+            -comp xz -e boot -noappend
           echo "squashfs: $(du -sh filesystem.squashfs)"
 
       - name: Prepare ISO structure
         run: |
           mkdir -p iso/live
           mkdir -p iso/boot/grub
-          mkdir -p iso/EFI/boot
-
-          # Copy squashfs
           cp filesystem.squashfs iso/live/
-
-          # Copy kernel and initrd from chroot
           KERNEL=$(ls chroot/boot/vmlinuz-* 2>/dev/null | sort -V | tail -1)
           INITRD=$(ls chroot/boot/initrd.img-* 2>/dev/null | sort -V | tail -1)
-          echo "Kernel: $KERNEL"
-          echo "Initrd: $INITRD"
+          echo "Kernel: $KERNEL  Initrd: $INITRD"
           cp "$KERNEL" iso/live/vmlinuz
           cp "$INITRD" iso/live/initrd
-
-          # Write GRUB config
           cat > iso/boot/grub/grub.cfg << 'EOF'
           set default=0
           set timeout=5
-
           menuentry "RIDOS OS v1.1 Baghdad" {
             linux /live/vmlinuz boot=live quiet splash
             initrd /live/initrd
           }
-
           menuentry "RIDOS OS (safe mode)" {
             linux /live/vmlinuz boot=live nomodeset
             initrd /live/initrd
           }
           EOF
-
           echo "ISO structure ready"
-          find iso/ -type f | head -20
 
-      - name: Create bootable ISO with xorriso
+      - name: Build GRUB images
         run: |
-          xorriso -as mkisofs \
-            -iso-level 3 \
-            -full-iso9660-filenames \
-            -volid "RIDOS_OS_1.1" \
-            -eltorito-boot boot/grub/bios.img \
-            -no-emul-boot \
-            -boot-load-size 4 \
-            -boot-info-table \
-            --eltorito-catalog boot/grub/boot.cat \
-            --grub2-boot-info \
-            --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-            -eltorito-alt-boot \
-            -e EFI/boot/efi.img \
-            -no-emul-boot \
-            --protective-msdos-label \
-            -o ridos-os-1.1.0-Baghdad-x86_64.iso \
-            -graft-points \
-              "/EFI/boot/efi.img=efi.img" \
-              "/boot/grub/bios.img=bios.img" \
-              "/=iso" \
-            2>&1 | tail -20 || true
-
-          # Build GRUB BIOS boot image
-          echo "Building GRUB BIOS image..."
           grub-mkstandalone \
             --format=i386-pc \
             --output=bios.img \
             --install-modules="linux normal iso9660 biosdisk memdisk search tar ls" \
             --modules="linux normal iso9660 biosdisk search" \
-            --locales="" \
-            --themes="" \
+            --locales="" --themes="" \
             "boot/grub/grub.cfg=iso/boot/grub/grub.cfg"
-
-          # Build GRUB EFI image
-          echo "Building GRUB EFI image..."
           grub-mkstandalone \
             --format=x86_64-efi \
             --output=bootx64.efi \
             --install-modules="linux normal iso9660 memdisk search tar ls" \
             --modules="linux normal iso9660 search" \
-            --locales="" \
-            --themes="" \
+            --locales="" --themes="" \
             "boot/grub/grub.cfg=iso/boot/grub/grub.cfg"
-
-          # Create EFI disk image
           dd if=/dev/zero of=efi.img bs=1M count=4
           mkfs.vfat efi.img
           mmd -i efi.img ::/EFI ::/EFI/boot
           mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
+          echo "GRUB images built"
 
-          # Now build the actual ISO
-          echo "Building final ISO..."
+      - name: Create bootable ISO
+        run: |
           xorriso -as mkisofs \
             -iso-level 3 \
             -full-iso9660-filenames \
@@ -227,13 +163,9 @@ jobs:
             -o ridos-os-1.1.0-Baghdad-x86_64.iso \
             -graft-points \
               "/boot/grub/bios.img=bios.img" \
-              "/=iso" \
-            2>&1
-
-          echo "=== ISO check ==="
+              "/=iso"
           ls -lh ridos-os-1.1.0-Baghdad-x86_64.iso
           file ridos-os-1.1.0-Baghdad-x86_64.iso
-          echo "=== Boot sector (first 512 bytes) ==="
           dd if=ridos-os-1.1.0-Baghdad-x86_64.iso bs=512 count=1 2>/dev/null | xxd | head -4
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
 
