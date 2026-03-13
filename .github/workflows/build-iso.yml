@@ -1,19 +1,12 @@
-bash
-
- cat /home/claude/build-iso.yml
-Output
-
- name: Build RIDOS OS ISO
+name: Build RIDOS OS ISO
 
 on:
   push:
-    branches: [ main, develop ]
-    tags:     [ "v*" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build-iso:
-    name: Build RIDOS OS ISO
     runs-on: ubuntu-22.04
     timeout-minutes: 120
 
@@ -21,156 +14,83 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y \
-            debootstrap squashfs-tools xorriso \
-            grub-pc-bin grub-efi-amd64-bin grub2-common \
-            mtools dosfstools \
-            debian-archive-keyring gnupg2 \
-            curl wget ca-certificates python3
-          echo "Tools ready"
+          sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin grub2-common mtools dosfstools gnupg2 curl
+          echo "Done"
 
-      - name: Bootstrap Debian chroot
+      - name: Bootstrap Debian
         run: |
-          curl -fsSL https://ftp-master.debian.org/keys/release-12.asc \
-            | sudo gpg --dearmor -o /usr/share/keyrings/debian-bookworm.gpg
-          sudo debootstrap \
-            --arch=amd64 \
-            --variant=minbase \
-            --keyring=/usr/share/keyrings/debian-bookworm.gpg \
-            --include="systemd,systemd-sysv,udev,sudo,locales,tzdata,bash" \
-            bookworm \
-            chroot \
-            http://deb.debian.org/debian/
+          curl -fsSL https://ftp-master.debian.org/keys/release-12.asc | sudo gpg --dearmor -o /usr/share/keyrings/debian-bookworm.gpg
+          sudo debootstrap --arch=amd64 --variant=minbase --keyring=/usr/share/keyrings/debian-bookworm.gpg --include=systemd,systemd-sysv,udev,sudo,locales,bash bookworm chroot http://deb.debian.org/debian/
           echo "Bootstrap done"
 
-      - name: Install packages in chroot
+      - name: Install packages
         run: |
           sudo mount --bind /dev chroot/dev
           sudo mount --bind /proc chroot/proc
           sudo mount --bind /sys chroot/sys
           sudo chroot chroot apt-get update -qq
-          sudo chroot chroot apt-get install -y \
-            live-boot live-boot-initramfs-tools \
-            linux-image-amd64 initramfs-tools \
-            grub-pc grub2-common \
-            xfce4 xfce4-terminal \
-            network-manager \
-            python3 python3-pip \
-            xterm vim nano curl wget git \
-            fonts-dejavu
+          sudo chroot chroot apt-get install -y live-boot live-boot-initramfs-tools linux-image-amd64 initramfs-tools grub-pc xfce4 xfce4-terminal network-manager python3 vim nano curl wget fonts-dejavu
           sudo umount chroot/sys chroot/proc chroot/dev
-          echo "Packages installed"
+          echo "Done"
 
-      - name: Configure chroot system
+      - name: Configure system
         run: |
           echo "ridos-os" | sudo tee chroot/etc/hostname
-          echo "en_US.UTF-8 UTF-8" | sudo tee chroot/etc/locale.gen
-          sudo chroot chroot locale-gen
           sudo chroot chroot useradd -m -s /bin/bash -G sudo ridos
           echo "ridos:ridos" | sudo chroot chroot chpasswd
-          echo "root:ridos" | sudo chroot chroot chpasswd
           sudo mkdir -p chroot/etc/systemd/system/getty@tty1.service.d
-          printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin ridos --noclear %%I $TERM\n' \
-            | sudo tee chroot/etc/systemd/system/getty@tty1.service.d/autologin.conf
-          echo "System configured"
+          printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin ridos --noclear %%I $TERM\n' | sudo tee chroot/etc/systemd/system/getty@tty1.service.d/autologin.conf
+          echo "Done"
 
-      - name: Install RIDOS core files
+      - name: Install RIDOS files
         run: |
           sudo mkdir -p chroot/opt/ridos/bin
-          sudo mkdir -p chroot/usr/share/ridos
           sudo cp ridos-core/*.py chroot/opt/ridos/bin/
           sudo chmod +x chroot/opt/ridos/bin/*.py
-          sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
-               chroot/usr/share/ridos/
-          echo "RIDOS files installed"
+          echo "Done"
 
-      - name: Build squashfs filesystem
+      - name: Build squashfs
         run: |
-          sudo mksquashfs chroot filesystem.squashfs \
-            -comp xz -e boot -noappend
-          echo "squashfs: $(du -sh filesystem.squashfs)"
+          sudo mksquashfs chroot filesystem.squashfs -comp xz -e boot -noappend
+          echo "squashfs done"
 
       - name: Prepare ISO structure
         run: |
-          mkdir -p iso/live
-          mkdir -p iso/boot/grub
+          mkdir -p iso/live iso/boot/grub
           cp filesystem.squashfs iso/live/
-          KERNEL=$(ls chroot/boot/vmlinuz-* 2>/dev/null | sort -V | tail -1)
-          INITRD=$(ls chroot/boot/initrd.img-* 2>/dev/null | sort -V | tail -1)
-          echo "Kernel: $KERNEL  Initrd: $INITRD"
-          cp "$KERNEL" iso/live/vmlinuz
-          cp "$INITRD" iso/live/initrd
-          cat > iso/boot/grub/grub.cfg << 'EOF'
+          cp chroot/boot/vmlinuz-* iso/live/vmlinuz
+          cp chroot/boot/initrd.img-* iso/live/initrd
+          cat > iso/boot/grub/grub.cfg << GRUBEOF
           set default=0
           set timeout=5
           menuentry "RIDOS OS v1.1 Baghdad" {
             linux /live/vmlinuz boot=live quiet splash
             initrd /live/initrd
           }
-          menuentry "RIDOS OS (safe mode)" {
-            linux /live/vmlinuz boot=live nomodeset
-            initrd /live/initrd
-          }
-          EOF
+          GRUBEOF
           echo "ISO structure ready"
 
       - name: Build GRUB images
         run: |
-          grub-mkstandalone \
-            --format=i386-pc \
-            --output=bios.img \
-            --install-modules="linux normal iso9660 biosdisk memdisk search tar ls" \
-            --modules="linux normal iso9660 biosdisk search" \
-            --locales="" --themes="" \
-            "boot/grub/grub.cfg=iso/boot/grub/grub.cfg"
-          grub-mkstandalone \
-            --format=x86_64-efi \
-            --output=bootx64.efi \
-            --install-modules="linux normal iso9660 memdisk search tar ls" \
-            --modules="linux normal iso9660 search" \
-            --locales="" --themes="" \
-            "boot/grub/grub.cfg=iso/boot/grub/grub.cfg"
+          grub-mkstandalone --format=i386-pc --output=bios.img --install-modules="linux normal iso9660 biosdisk memdisk search tar ls" --modules="linux normal iso9660 biosdisk search" --locales="" --themes="" "boot/grub/grub.cfg=iso/boot/grub/grub.cfg"
+          grub-mkstandalone --format=x86_64-efi --output=bootx64.efi --install-modules="linux normal iso9660 memdisk search tar ls" --modules="linux normal iso9660 search" --locales="" --themes="" "boot/grub/grub.cfg=iso/boot/grub/grub.cfg"
           dd if=/dev/zero of=efi.img bs=1M count=4
           mkfs.vfat efi.img
           mmd -i efi.img ::/EFI ::/EFI/boot
           mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
-          echo "GRUB images built"
+          echo "GRUB done"
 
       - name: Create bootable ISO
         run: |
-          xorriso -as mkisofs \
-            -iso-level 3 \
-            -full-iso9660-filenames \
-            -volid "RIDOS_OS_1.1" \
-            --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-            -partition_offset 16 \
-            --mbr-force-bootable \
-            -append_partition 2 0xef efi.img \
-            -appended_part_as_gpt \
-            -eltorito-boot boot/grub/bios.img \
-            -eltorito-catalog boot/grub/boot.cat \
-            -no-emul-boot \
-            -boot-load-size 4 \
-            -boot-info-table \
-            --grub2-boot-info \
-            -eltorito-alt-boot \
-            -eltorito-platform efi \
-            -eltorito-boot --interval:appended_partition_2:all:: \
-            -no-emul-boot \
-            -o ridos-os-1.1.0-Baghdad-x86_64.iso \
-            -graft-points \
-              "/boot/grub/bios.img=bios.img" \
-              "/=iso"
+          xorriso -as mkisofs -iso-level 3 -full-iso9660-filenames -volid "RIDOS_OS_1.1" --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img -partition_offset 16 --mbr-force-bootable -append_partition 2 0xef efi.img -appended_part_as_gpt -eltorito-boot boot/grub/bios.img -eltorito-catalog boot/grub/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info -eltorito-alt-boot -eltorito-platform efi -eltorito-boot --interval:appended_partition_2:all:: -no-emul-boot -o ridos-os-1.1.0-Baghdad-x86_64.iso -graft-points "/boot/grub/bios.img=bios.img" "/=iso"
           ls -lh ridos-os-1.1.0-Baghdad-x86_64.iso
           file ridos-os-1.1.0-Baghdad-x86_64.iso
-          dd if=ridos-os-1.1.0-Baghdad-x86_64.iso bs=512 count=1 2>/dev/null | xxd | head -4
-          isohybrid --uefi ridos-os-1.1.0-Baghdad-x86_64.iso || isohybrid ridos-os-1.1.0-Baghdad-x86_1.iso || true
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
 
-      - name: Upload ISO artifact
+      - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: RIDOS-OS-1.1.0-Baghdad
@@ -178,22 +98,3 @@ jobs:
             ridos-os-1.1.0-Baghdad-x86_64.iso
             ridos-os-1.1.0-Baghdad-x86_64.iso.md5
           retention-days: 30
-
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: /tmp/build.log
-          retention-days: 7
-
-      - name: Create GitHub Release on tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          gh release create "${{ github.ref_name }}" \
-            ridos-os-1.1.0-Baghdad-x86_64.iso \
-            ridos-os-1.1.0-Baghdad-x86_64.iso.md5 \
-            --title "RIDOS OS ${{ github.ref_name }} Baghdad" \
-            --notes "RIDOS OS AI-powered Linux distro. GPL v3."
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
