@@ -33,22 +33,12 @@ jobs:
           curl -fsSL https://ftp-master.debian.org/keys/release-12.asc \
             | sudo gpg --dearmor -o /usr/share/keyrings/debian-bookworm.gpg
 
-          PKGS="systemd,systemd-sysv,udev"
-          PKGS="$PKGS,live-boot,live-boot-initramfs-tools"
-          PKGS="$PKGS,linux-image-amd64,initramfs-tools"
-          PKGS="$PKGS,grub-pc,grub2-common"
-          PKGS="$PKGS,xfce4,xfce4-terminal"
-          PKGS="$PKGS,network-manager"
-          PKGS="$PKGS,python3,python3-pip"
-          PKGS="$PKGS,xterm,vim,nano,curl,wget,git"
-          PKGS="$PKGS,sudo,bash,locales,tzdata"
-          PKGS="$PKGS,fonts-dejavu"
-
-          sudo debootstrap \
+         # Bootstrap with minimal packages only
+              sudo debootstrap \
             --arch=amd64 \
             --variant=minbase \
             --keyring=/usr/share/keyrings/debian-bookworm.gpg \
-            --include="$PKGS" \
+            --include="systemd,systemd-sysv,udev,sudo,locales,tzdata" \
             bookworm \
             chroot \
             http://deb.debian.org/debian/
