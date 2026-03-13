@@ -8,7 +8,7 @@ name: Build RIDOS OS ISO
 on:
   push:
     branches: [ main, develop ]
-    tags:     [ 'v*' ]
+    tags:     [ "v*" ]
   workflow_dispatch:
 
 jobs:
