@@ -156,6 +156,36 @@ jobs:
           sudo chroot chroot systemctl enable lightdm NetworkManager bluetooth cups acpid 2>/dev/null || true
           sudo chroot chroot systemctl disable getty@tty1 2>/dev/null || true
 
+          # RIDOS branding on LightDM greeter
+          sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf << 'EOF'
+          [greeter]
+          background=#6B21A8
+          theme-name=Adwaita-dark
+          icon-theme-name=Papirus-Dark
+          font-name=Noto Sans 11
+          indicators=~host;~spacer;~clock;~spacer;~power
+          clock-format=%A, %d %B %Y  %H:%M
+          position=50%,center 50%,center
+          EOF
+
+          # RIDOS OS release file
+          sudo tee chroot/etc/os-release << 'EOF'
+          PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"
+          NAME="RIDOS OS"
+          VERSION_ID="1.1.0"
+          VERSION="1.1.0 (Baghdad)"
+          ID=ridos
+          ID_LIKE=debian
+          HOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"
+          SUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
+          BUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
+          EOF
+
+          sudo tee chroot/etc/issue << 'EOF'
+          RIDOS OS v1.1.0 Baghdad - AI-Powered Linux
+          Username: ridos | Password: ridos
+          EOF
+
           echo "System configured"
 
       - name: Apply RIDOS branding & purple theme
