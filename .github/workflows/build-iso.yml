@@ -132,7 +132,8 @@ jobs:
 
           # Locale
           echo "en_US.UTF-8 UTF-8" | sudo tee chroot/etc/locale.gen
-          echo "ar_IQ.UTF-8 UTF-8" >> chroot/etc/locale.gen
+          echo "ar_IQ.UTF-8 UTF-8" | sudo tee -a chroot/etc/locale.gen
+          
           sudo chroot chroot locale-gen
           echo "LANG=en_US.UTF-8" | sudo tee chroot/etc/default/locale
 
