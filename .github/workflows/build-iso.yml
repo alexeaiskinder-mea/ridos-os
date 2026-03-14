@@ -44,7 +44,6 @@ jobs:
           sudo mount --bind /sys chroot/sys
           sudo mount --bind /run chroot/run
 
-          # Add contrib non-free repos for firmware/drivers
           sudo tee chroot/etc/apt/sources.list << 'EOF'
           deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
           deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
@@ -58,16 +57,14 @@ jobs:
             live-boot live-boot-initramfs-tools \
             linux-image-amd64 initramfs-tools \
             grub-pc grub2-common \
-            bash-completion \
-            tzdata locales
+            bash-completion tzdata locales
 
-          # ── Hardware drivers (most common PC/laptop hardware) ──
+          # Hardware drivers
           sudo chroot chroot apt-get install -y \
             firmware-linux firmware-linux-free firmware-linux-nonfree \
             firmware-iwlwifi firmware-atheros firmware-realtek \
-            firmware-b43-installer \
-            firmware-amd-graphics firmware-misc-nonfree \
-            intel-microcode amd64-microcode \
+            firmware-b43-installer firmware-amd-graphics \
+            firmware-misc-nonfree intel-microcode amd64-microcode \
             xserver-xorg xserver-xorg-video-all \
             xserver-xorg-input-all \
             xserver-xorg-video-intel xserver-xorg-video-amdgpu \
@@ -78,13 +75,12 @@ jobs:
             cups printer-driver-all \
             network-manager network-manager-gnome \
             wpasupplicant wireless-tools \
-            usb-modeswitch \
-            pciutils usbutils \
+            usb-modeswitch pciutils usbutils \
             acpi acpid laptop-detect \
             ntfs-3g exfat-fuse \
             --no-install-recommends || true
 
-          # ── XFCE Desktop ──
+          # XFCE Desktop
           sudo chroot chroot apt-get install -y \
             xfce4 xfce4-terminal xfce4-whiskermenu-plugin \
             xfce4-power-manager xfce4-notifyd \
@@ -95,17 +91,10 @@ jobs:
             fonts-dejavu fonts-liberation fonts-noto \
             fonts-noto-color-emoji
 
-          # ── Browsers ──
+          # Browsers
           sudo chroot chroot apt-get install -y firefox-esr
 
-          # Install Opera via direct .deb
-          sudo chroot chroot bash -c "
-            curl -fsSL -o /tmp/opera.deb 'https://download3.operacdn.com/pub/opera/desktop/106.0.4998.70/linux/opera-stable_106.0.4998.70_amd64.deb' || true
-            dpkg -i /tmp/opera.deb 2>/dev/null || apt-get install -f -y || true
-            rm -f /tmp/opera.deb
-          "
-
-          # ── Development & IT tools ──
+          # Dev & IT tools
           sudo chroot chroot apt-get install -y \
             python3 python3-pip python3-venv \
             python3-flask python3-flask-socketio \
@@ -115,115 +104,88 @@ jobs:
             openssh-client openssh-server \
             htop neofetch tree \
             zip unzip p7zip-full \
-            terminator
+            parted gparted \
+            rsync dosfstools
 
           sudo umount chroot/run chroot/sys chroot/proc chroot/dev
           echo "All packages installed"
 
       - name: Configure system
         run: |
-          # Hostname
           echo "ridos-os" | sudo tee chroot/etc/hostname
+
           sudo tee chroot/etc/hosts << 'EOF'
           127.0.0.1 localhost
           127.0.1.1 ridos-os
           EOF
 
-          # Locale
           echo "en_US.UTF-8 UTF-8" | sudo tee chroot/etc/locale.gen
           echo "ar_IQ.UTF-8 UTF-8" | sudo tee -a chroot/etc/locale.gen
-          
           sudo chroot chroot locale-gen
           echo "LANG=en_US.UTF-8" | sudo tee chroot/etc/default/locale
 
-          # Timezone
           sudo chroot chroot ln -sf /usr/share/zoneinfo/Asia/Baghdad /etc/localtime
 
-          # Create ridos user
-          sudo chroot chroot useradd -m -s /bin/bash -G sudo,audio,video,netdev,plugdev,bluetooth ridos
+          sudo chroot chroot useradd -m -s /bin/bash \
+            -G sudo,audio,video,netdev,plugdev,bluetooth ridos
           echo "ridos:ridos" | sudo chroot chroot chpasswd
           echo "root:ridos" | sudo chroot chroot chpasswd
 
-          # Auto-login with LightDM
+          # LightDM - show login screen (NO autologin)
           sudo mkdir -p chroot/etc/lightdm/lightdm.conf.d
-          sudo tee chroot/etc/lightdm/lightdm.conf.d/50-autologin.conf << 'EOF'
+          sudo tee chroot/etc/lightdm/lightdm.conf.d/50-ridos.conf << 'EOF'
           [Seat:*]
-          autologin-user=ridos
-          autologin-user-timeout=0
           user-session=xfce
+          greeter-session=lightdm-gtk-greeter
+          EOF
+
+          # LightDM RIDOS branding on login screen
+          sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf << 'EOF'
+          [greeter]
+          background=#6B21A8
+          theme-name=Adwaita-dark
+          icon-theme-name=Papirus-Dark
+          font-name=Noto Sans 11
+          indicators=~host;~spacer;~clock;~spacer;~power
+          clock-format=%A, %d %B %Y  %H:%M
+          position=50%,center 50%,center
+          EOF
+
+          # RIDOS OS release branding
+          sudo tee chroot/etc/os-release << 'EOF'
+          PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"
+          NAME="RIDOS OS"
+          VERSION_ID="1.1.0"
+          VERSION="1.1.0 (Baghdad)"
+          ID=ridos
+          ID_LIKE=debian
+          HOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"
+          SUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
+          BUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
+          EOF
+
+          sudo tee chroot/etc/issue << 'EOF'
+          RIDOS OS v1.1.0 Baghdad - AI-Powered Linux
+          Username: ridos | Password: ridos
+          EOF
+
+          # Fast shutdown 5 seconds
+          sudo mkdir -p chroot/etc/systemd/system.conf.d
+          sudo tee chroot/etc/systemd/system.conf.d/timeout.conf << 'EOF'
+          [Manager]
+          DefaultTimeoutStopSec=5s
+          DefaultTimeoutStartSec=10s
+          ShutdownWatchdogSec=10s
           EOF
 
           # Enable services
-          sudo chroot chroot systemctl enable lightdm NetworkManager bluetooth cups acpid 2>/dev/null || true
-          sudo chroot chroot systemctl disable getty@tty1 2>/dev/null || true
-
-          # RIDOS branding on LightDM greeter
-          sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf << 'EOF'
-          [greeter]
-          background=#6B21A8
-          theme-name=Adwaita-dark
-          icon-theme-name=Papirus-Dark
-          font-name=Noto Sans 11
-          indicators=~host;~spacer;~clock;~spacer;~power
-          clock-format=%A, %d %B %Y  %H:%M
-          position=50%,center 50%,center
-          EOF
-
-          # RIDOS OS release file
-          sudo tee chroot/etc/os-release << 'EOF'
-          PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"
-          NAME="RIDOS OS"
-          VERSION_ID="1.1.0"
-          VERSION="1.1.0 (Baghdad)"
-          ID=ridos
-          ID_LIKE=debian
-          HOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"
-          SUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
-          BUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
-          EOF
-
-          sudo tee chroot/etc/issue << 'EOF'
-          RIDOS OS v1.1.0 Baghdad - AI-Powered Linux
-          Username: ridos | Password: ridos
-          EOF
+          sudo chroot chroot systemctl enable lightdm NetworkManager \
+            bluetooth cups acpid 2>/dev/null || true
 
           echo "System configured"
 
-          # RIDOS branding on LightDM greeter
-          sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf << 'EOF'
-          [greeter]
-          background=#6B21A8
-          theme-name=Adwaita-dark
-          icon-theme-name=Papirus-Dark
-          font-name=Noto Sans 11
-          indicators=~host;~spacer;~clock;~spacer;~power
-          clock-format=%A, %d %B %Y  %H:%M
-          position=50%,center 50%,center
-          EOF
-
-          # RIDOS OS release file
-          sudo tee chroot/etc/os-release << 'EOF'
-          PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"
-          NAME="RIDOS OS"
-          VERSION_ID="1.1.0"
-          VERSION="1.1.0 (Baghdad)"
-          ID=ridos
-          ID_LIKE=debian
-          HOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"
-          SUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
-          BUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
-          EOF
-
-          sudo tee chroot/etc/issue << 'EOF'
-          RIDOS OS v1.1.0 Baghdad - AI-Powered Linux
-          Username: ridos | Password: ridos
-          EOF
-
-          echo "System configured"
-
-      - name: Apply RIDOS branding & purple theme
+      - name: Apply RIDOS branding and theme
         run: |
-          # ── XFCE Purple Theme ──
           sudo mkdir -p chroot/home/ridos/.config/xfce4/xfconf/xfce-perchannel-xml
 
           sudo tee chroot/home/ridos/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml << 'EOF'
@@ -273,21 +235,23 @@ jobs:
           </channel>
           EOF
 
-          # ── Desktop icons/shortcuts ──
+          # Desktop shortcuts
           sudo mkdir -p chroot/home/ridos/Desktop
 
+          # AI Shell shortcut
           sudo tee chroot/home/ridos/Desktop/ridos-ai.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
           Name=RIDOS AI Shell
           Comment=AI-powered IT Assistant
-          Exec=xfce4-terminal -e "python3 /opt/ridos/bin/ridos_shell.py"
-          Icon=/usr/share/ridos/ridos-icon.png
+          Exec=xfce4-terminal --title="RIDOS AI Shell" -e "python3 /opt/ridos/bin/ridos_shell.py"
+          Icon=utilities-terminal
           Terminal=false
           Categories=System;
           EOF
 
+          # Firefox shortcut
           sudo tee chroot/home/ridos/Desktop/firefox.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
@@ -299,10 +263,25 @@ jobs:
           Categories=Network;WebBrowser;
           EOF
 
-          sudo chmod +x chroot/home/ridos/Desktop/*.desktop
-          sudo chroot chroot chown -R ridos:ridos /home/ridos
+          # Install to HDD shortcut
+          sudo tee chroot/home/ridos/Desktop/install-ridos.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Install RIDOS OS to HDD
+          Comment=Install RIDOS OS permanently to your hard drive
+          Exec=xfce4-terminal --title="RIDOS OS Installer" -e "sudo /opt/ridos/bin/ridos-install.sh"
+          Icon=drive-harddisk
+          Terminal=false
+          Categories=System;
+          EOF
 
-          # ── Plymouth boot splash ──
+          sudo chmod +x chroot/home/ridos/Desktop/*.desktop
+          sudo tee chroot/home/ridos/.config/xfce4/helpers.rc << 'EOF'
+          TerminalEmulator=xfce4-terminal
+          EOF
+
+          # Plymouth boot splash
           sudo mkdir -p chroot/usr/share/plymouth/themes/ridos
           sudo tee chroot/usr/share/plymouth/themes/ridos/ridos.plymouth << 'EOF'
           [Plymouth Theme]
@@ -318,25 +297,19 @@ jobs:
           sudo tee chroot/usr/share/plymouth/themes/ridos/ridos.script << 'EOF'
           Window.SetBackgroundTopColor(0.42, 0.13, 0.66);
           Window.SetBackgroundBottomColor(0.12, 0.07, 0.27);
-
-          logo_image = Image("ridos-logo.png");
-          logo_sprite = Sprite(logo_image);
-          logo_sprite.SetX(Window.GetWidth()/2 - logo_image.GetWidth()/2);
-          logo_sprite.SetY(Window.GetHeight()/2 - logo_image.GetHeight()/2 - 50);
-
           message_sprite = Sprite();
-          message_sprite.SetPosition(Window.GetWidth()/2 - 100, Window.GetHeight()/2 + 80, 10000);
-
+          message_sprite.SetPosition(Window.GetWidth()/2 - 150, Window.GetHeight()/2 - 20, 10000);
           fun refresh_callback() {
-            message_image = Image.Text("RIDOS OS v1.1 Baghdad", 0.8, 0.6, 1.0);
+            message_image = Image.Text("RIDOS OS v1.1.0 Baghdad", 1.0, 1.0, 1.0);
             message_sprite.SetImage(message_image);
           }
           Plymouth.SetRefreshFunction(refresh_callback);
           EOF
 
+          sudo chroot chroot chown -R ridos:ridos /home/ridos
           echo "Branding applied"
 
-      - name: Install RIDOS core files
+      - name: Install RIDOS core files and installer
         run: |
           sudo mkdir -p chroot/opt/ridos/bin
           sudo mkdir -p chroot/usr/share/ridos
@@ -345,23 +318,140 @@ jobs:
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
                chroot/usr/share/ridos/
 
-          # Create RIDOS logo (purple gradient text image)
-          convert -size 400x120 \
-            gradient:"#6B21A8-#1E1B4B" \
-            -font DejaVu-Sans-Bold -pointsize 60 \
-            -fill white -gravity center \
-            -annotate 0 "RIDOS OS" \
-            chroot/usr/share/ridos/ridos-icon.png 2>/dev/null || \
-          convert -size 400x120 xc:"#6B21A8" \
-            -font DejaVu-Sans -pointsize 50 \
-            -fill white -gravity center \
-            -annotate 0 "RIDOS OS" \
-            chroot/usr/share/ridos/ridos-icon.png 2>/dev/null || true
+          # RIDOS HDD Installer script
+          sudo tee chroot/opt/ridos/bin/ridos-install.sh << 'INSTALLEOF'
+          #!/bin/bash
+          # RIDOS OS HDD Installer
 
-          sudo cp chroot/usr/share/ridos/ridos-icon.png \
-               chroot/usr/share/plymouth/themes/ridos/ridos-logo.png 2>/dev/null || true
+          clear
+          echo "============================================"
+          echo "   RIDOS OS v1.1.0 Baghdad - HDD Installer"
+          echo "============================================"
+          echo ""
+          echo "WARNING: This will ERASE all data on the selected disk!"
+          echo ""
 
-          # Create neofetch config showing RIDOS info
+          # List available disks
+          echo "Available disks:"
+          lsblk -d -o NAME,SIZE,MODEL | grep -v loop
+          echo ""
+
+          read -p "Enter disk to install to (e.g. sda, sdb): " DISK
+          DISK="/dev/$DISK"
+
+          if [ ! -b "$DISK" ]; then
+            echo "ERROR: Disk $DISK not found!"
+            read -p "Press Enter to exit..."
+            exit 1
+          fi
+
+          echo ""
+          echo "You selected: $DISK"
+          lsblk "$DISK"
+          echo ""
+          read -p "ARE YOU SURE? All data on $DISK will be ERASED! Type YES to continue: " CONFIRM
+
+          if [ "$CONFIRM" != "YES" ]; then
+            echo "Installation cancelled."
+            read -p "Press Enter to exit..."
+            exit 0
+          fi
+
+          echo ""
+          echo "Starting installation..."
+
+          # Partition the disk
+          echo "Partitioning disk..."
+          parted -s "$DISK" mklabel msdos
+          parted -s "$DISK" mkpart primary ext4 1MiB 100%
+          parted -s "$DISK" set 1 boot on
+
+          PARTITION="${DISK}1"
+          sleep 2
+
+          # Format partition
+          echo "Formatting partition..."
+          mkfs.ext4 -F "$PARTITION"
+
+          # Mount partition
+          echo "Mounting partition..."
+          mkdir -p /mnt/ridos-install
+          mount "$PARTITION" /mnt/ridos-install
+
+          # Copy system
+          echo "Copying RIDOS OS files (this may take 10-20 minutes)..."
+          rsync -ax --exclude=/proc --exclude=/sys --exclude=/dev \
+            --exclude=/run --exclude=/mnt --exclude=/media \
+            / /mnt/ridos-install/
+
+          # Create required dirs
+          mkdir -p /mnt/ridos-install/{proc,sys,dev,run,mnt,media}
+
+          # Install GRUB bootloader
+          echo "Installing GRUB bootloader..."
+          mount --bind /dev /mnt/ridos-install/dev
+          mount --bind /proc /mnt/ridos-install/proc
+          mount --bind /sys /mnt/ridos-install/sys
+
+          # Update fstab
+          UUID=$(blkid -s UUID -o value "$PARTITION")
+          echo "UUID=$UUID / ext4 errors=remount-ro 0 1" > /mnt/ridos-install/etc/fstab
+
+          # Remove live-boot from installed system
+          chroot /mnt/ridos-install apt-get remove -y live-boot live-boot-initramfs-tools 2>/dev/null || true
+          chroot /mnt/ridos-install update-initramfs -u 2>/dev/null || true
+          chroot /mnt/ridos-install grub-install "$DISK"
+          chroot /mnt/ridos-install update-grub
+
+          # Update GRUB config for installed system
+          sed -i 's/boot=live //' /mnt/ridos-install/boot/grub/grub.cfg 2>/dev/null || true
+
+          umount /mnt/ridos-install/sys
+          umount /mnt/ridos-install/proc
+          umount /mnt/ridos-install/dev
+          umount /mnt/ridos-install
+
+          echo ""
+          echo "============================================"
+          echo "  RIDOS OS installed successfully!"
+          echo "  Remove the USB/DVD and reboot."
+          echo "============================================"
+          read -p "Press Enter to exit..."
+          INSTALLEOF
+
+          sudo chmod +x chroot/opt/ridos/bin/ridos-install.sh
+
+          # RIDOS welcome banner
+          sudo tee chroot/etc/motd << 'EOF'
+
+            ██████╗ ██╗██████╗  ██████╗ ███████╗
+            ██╔══██╗██║██╔══██╗██╔═══██╗██╔════╝
+            ██████╔╝██║██║  ██║██║   ██║███████╗
+            ██╔══██╗██║██║  ██║██║   ██║╚════██║
+            ██║  ██║██║██████╔╝╚██████╔╝███████║
+            ╚═╝  ╚═╝╚═╝╚═════╝  ╚═════╝ ╚══════╝
+
+            RIDOS OS v1.1.0 "Baghdad"
+            AI-Powered Linux for IT Professionals
+            Username: ridos  |  Password: ridos
+            AI Shell: python3 /opt/ridos/bin/ridos_shell.py
+            Install:  sudo /opt/ridos/bin/ridos-install.sh
+
+          EOF
+
+          # Autostart welcome terminal
+          sudo mkdir -p chroot/home/ridos/.config/autostart
+          sudo tee chroot/home/ridos/.config/autostart/ridos-welcome.desktop << 'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=RIDOS Welcome
+          Exec=xfce4-terminal --title="RIDOS OS v1.1.0 Baghdad" -e "bash -c 'neofetch; echo; echo \"  Welcome to RIDOS OS v1.1.0 Baghdad\"; echo \"  AI Shell: python3 /opt/ridos/bin/ridos_shell.py\"; echo \"  Install:  sudo /opt/ridos/bin/ridos-install.sh\"; echo; bash'"
+          Hidden=false
+          NoDisplay=false
+          X-GNOME-Autostart-enabled=true
+          EOF
+
+          # Neofetch config
           sudo mkdir -p chroot/home/ridos/.config/neofetch
           sudo tee chroot/home/ridos/.config/neofetch/config.conf << 'EOF'
           print_info() {
@@ -374,34 +464,8 @@ jobs:
               info "DE" de
               info "CPU" cpu
               info "Memory" memory
-              info "RIDOS" "v1.1.0 Baghdad"
           }
-          EOF
-
-          # Fast shutdown - reduce timeout from 90s to 10s
-          sudo mkdir -p chroot/etc/systemd/system.conf.d
-          sudo tee chroot/etc/systemd/system.conf.d/timeout.conf << 'EOF'
-          [Manager]
-          DefaultTimeoutStopSec=10s
-          DefaultTimeoutStartSec=10s
-          EOF
-
-          # Create welcome message
-          sudo tee chroot/etc/motd << 'EOF'
-
-            ██████╗ ██╗██████╗  ██████╗ ███████╗
-            ██╔══██╗██║██╔══██╗██╔═══██╗██╔════╝
-            ██████╔╝██║██║  ██║██║   ██║███████╗
-            ██╔══██╗██║██║  ██║██║   ██║╚════██║
-            ██║  ██║██║██████╔╝╚██████╔╝███████║
-            ╚═╝  ╚═╝╚═╝╚═════╝  ╚═════╝ ╚══════╝
-
-            RIDOS OS v1.1.0 "Baghdad"
-            AI-Powered Linux for IT Professionals
-
-            Username: ridos  |  Password: ridos
-            AI Shell: python3 /opt/ridos/bin/ridos_shell.py
-
+          ascii_distro="auto"
           EOF
 
           sudo chroot chroot chown -R ridos:ridos /home/ridos
@@ -430,11 +494,11 @@ jobs:
             linux /live/vmlinuz boot=live quiet splash
             initrd /live/initrd
           }
-          menuentry "RIDOS OS (safe mode - nomodeset)" {
+          menuentry "RIDOS OS (safe mode)" {
             linux /live/vmlinuz boot=live nomodeset
             initrd /live/initrd
           }
-          menuentry "RIDOS OS (debug mode)" {
+          menuentry "RIDOS OS (debug)" {
             linux /live/vmlinuz boot=live
             initrd /live/initrd
           }
@@ -492,20 +556,19 @@ jobs:
             ridos-os-1.1.0-Baghdad-x86_64.iso.md5 \
             --title "RIDOS OS ${{ github.ref_name }} Baghdad" \
             --notes "## RIDOS OS v1.1.0 Baghdad
-
           AI-Powered Linux for IT Professionals
 
-          ### What's included:
+          ### Included:
           - XFCE desktop with dark purple theme
-          - Firefox ESR + Opera browsers
+          - Firefox ESR browser
           - RIDOS AI Shell (Claude AI powered)
+          - HDD Installer included
           - Full hardware driver support
           - Network tools: nmap, traceroute, net-tools
-          - Development tools: Python3, Git, Vim
+          - Development: Python3, Git, Vim
 
           ### Login:
-          - Username: ridos
-          - Password: ridos
+          - Username: ridos  |  Password: ridos
 
           Built on Debian bookworm | GPL v3"
         env:
