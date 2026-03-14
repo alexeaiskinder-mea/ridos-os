@@ -377,6 +377,14 @@ jobs:
           }
           EOF
 
+          # Fast shutdown - reduce timeout from 90s to 10s
+          sudo mkdir -p chroot/etc/systemd/system.conf.d
+          sudo tee chroot/etc/systemd/system.conf.d/timeout.conf << 'EOF'
+          [Manager]
+          DefaultTimeoutStopSec=10s
+          DefaultTimeoutStartSec=10s
+          EOF
+
           # Create welcome message
           sudo tee chroot/etc/motd << 'EOF'
 
