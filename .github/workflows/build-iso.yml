@@ -5,7 +5,7 @@
           # 1. Bootstrap Full Debian
           sudo debootstrap --arch=amd64 bookworm chroot http://deb.debian.org/debian/
 
-          # 2. Add Non-Free and Firmware Repositories (CRITICAL FIX)
+          # 2. Add Non-Free and Firmware Repositories
           sudo tee chroot/etc/apt/sources.list << 'EOF'
           deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
           deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
