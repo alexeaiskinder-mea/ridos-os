@@ -22,7 +22,7 @@ jobs:
             debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin grub2-common \
             mtools dosfstools gnupg2 curl wget \
-            imagemagick librsvg2-bin
+            imagemagick librsvg2-bin syslinux-utils # Added syslinux-utils for isohybrid
           echo "Done"
 
       - name: Bootstrap Debian
@@ -382,7 +382,7 @@ jobs:
           sudo cp build-system/scripts/ai_features.py chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo chmod +x chroot/opt/ridos/bin/*.py
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
-               chroot/usr/share/ridos/
+                chroot/usr/share/ridos/
 
           # RIDOS HDD Installer script
           sudo tee chroot/opt/ridos/bin/ridos-install.sh << 'INSTALLEOF'
@@ -415,7 +415,7 @@ jobs:
           echo "You selected: $DISK"
           lsblk "$DISK"
           echo ""
-          read -p "ARE YOU SURE? All data on $DISK will be ERASED! Type YES to continue: " CONFIRM
+          echo "ARE YOU SURE? All data on $DISK will be ERASED! Type YES to continue: " CONFIRM
 
           if [ "$CONFIRM" != "YES" ]; then
             echo "Installation cancelled."
@@ -494,7 +494,7 @@ jobs:
             ██╔══██╗██║██╔══██╗██╔═══██╗██╔════╝
             ██████╔╝██║██║  ██║██║   ██║███████╗
             ██╔══██╗██║██║  ██║██║   ██║╚════██║
-            ██║  ██║██║██████╔╝╚██████╔╝███████║
+            ██║  ██╗██║██████╔╝╚██████╔╝███████║
             ╚═╝  ╚═╝╚═╝╚═════╝  ╚═════╝ ╚══════╝
 
             RIDOS OS v1.1.0 "Baghdad"
@@ -600,6 +600,11 @@ jobs:
             "/boot/grub/bios.img=bios.img" \
             "/=iso"
 
+          # --- FIX FOR RUFUS STARTS HERE ---
+          echo "Patching ISO with isohybrid for Rufus compatibility..."
+          isohybrid --uefi ridos-os-1.1.0-Baghdad-x86_64.iso
+          # --- FIX ENDS ---
+
           ls -lh ridos-os-1.1.0-Baghdad-x86_64.iso
           file ridos-os-1.1.0-Baghdad-x86_64.iso
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
@@ -610,8 +615,8 @@ jobs:
         with:
           name: RIDOS-OS-1.1.0-Baghdad
           path: |
-            ridos-os-1.1.0-Baghdad-x86_64.iso
-            ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+            rados-os-1.1.0-Baghdad-x86_64.iso
+            rados-os-1.1.0-Baghdad-x86_64.iso.md5
           retention-days: 30
 
       - name: Create GitHub Release on tag
