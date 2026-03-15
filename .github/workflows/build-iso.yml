@@ -1,4 +1,4 @@
-(name: Build RIDOS OS ISO
+name: Build RIDOS OS ISO
 
 on:
   push:
