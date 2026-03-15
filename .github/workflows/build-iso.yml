@@ -1,99 +1,33 @@
-name: Build RIDOS OS ISO
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build-iso:
-    runs-on: ubuntu-24.04  # Updated to 24.04 to fix that Node.js 20 warning
-    permissions:
-      contents: write
-    
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
+- name: Full RIDOS OS Build (Desktop + Tools)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            debootstrap squashfs-tools xorriso \
-            grub-pc-bin grub-efi-amd64-bin grub2-common \
-            mtools dosfstools rsync
-          echo "Dependencies installed."
-
-      - name: Bootstrap and Build System
-        run: |
-          # Create working directories
           sudo mkdir -p chroot iso/live iso/boot/grub
           
-          # 1. Bootstrap Minimal Debian
-          sudo debootstrap --arch=amd64 --variant=minbase bookworm chroot http://deb.debian.org/debian/
-          
-          # 2. Install Kernel and Bootloader inside chroot
+          # 1. Full Bootstrap
+          sudo debootstrap --arch=amd64 bookworm chroot http://deb.debian.org/debian/
+
+          # 2. Mount for installation
+          sudo mount --bind /dev chroot/dev
+          sudo mount --bind /proc chroot/proc
+          sudo mount --bind /sys chroot/sys
+
+          # 3. Install the Full Desktop Environment and Tools
           sudo chroot chroot apt-get update
-          sudo chroot chroot apt-get install -y --no-install-recommends \
-            linux-image-amd64 live-boot initramfs-tools
+          sudo chroot chroot apt-get install -y \
+            live-boot linux-image-amd64 xfce4 xfce4-terminal \
+            lightdm firefox-esr python3 python3-pip \
+            firmware-linux firmware-linux-nonfree \
+            network-manager pulseaudio sudo \
+            --no-install-recommends
+
+          # 4. (Optional) Add your RIDOS branding/user scripts here
           
-          # 3. Build SquashFS
+          # 5. Cleanup and Unmount
+          sudo umount chroot/sys chroot/proc chroot/dev
+          
+          # 6. Build SquashFS (The heavy part)
           sudo mksquashfs chroot filesystem.squashfs -comp xz
           sudo cp filesystem.squashfs iso/live/
           
-          # 4. Copy Kernel/Initrd to ISO folder
+          # 7. Copy Kernel
           sudo cp chroot/boot/vmlinuz-* iso/live/vmlinuz
           sudo cp chroot/boot/initrd.img-* iso/live/initrd
-          
-          # 5. Create GRUB Config
-          sudo tee iso/boot/grub/grub.cfg << 'EOF'
-          set default=0
-          set timeout=1
-          menuentry "RIDOS OS" {
-            linux /live/vmlinuz boot=live quiet splash
-            initrd /live/initrd
-          }
-          EOF
-
-      - name: Generate Hybrid ISO
-        run: |
-          # Create BIOS and EFI boot images
-          grub-mkimage -O i386-pc -o bios.core.img -p "/boot/grub" iso9660 linux normal biosdisk search
-          cat /usr/lib/grub/i386-pc/cdboot.img bios.core.img > bios.img
-          
-          grub-mkimage -O x86_64-efi -o bootx64.efi -p "/boot/grub" iso9660 linux normal search
-          dd if=/dev/zero of=efi.img bs=1M count=4
-          mkfs.vfat efi.img
-          mmd -i efi.img ::/EFI ::/EFI/boot
-          mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
-
-          # The Main ISO Generation
-          sudo xorriso -as mkisofs \
-            -iso-level 3 -volid "RIDOS_OS" \
-            --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-            --mbr-force-bootable \
-            -eltorito-boot boot/grub/bios.img \
-            -eltorito-catalog boot/grub/boot.cat \
-            -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
-            -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat \
-            -o ridos-os-baghdad.iso \
-            -graft-points \
-            "/boot/grub/bios.img=bios.img" \
-            "/boot/grub/efi.img=efi.img" \
-            "/=iso"
-          
-          # Create checksum
-          md5sum ridos-os-baghdad.iso > ridos-os-baghdad.iso.md5
-          
-          # DEBUG: List files to ensure ISO exists
-          ls -lh *.iso
-
-      - name: Upload ISO Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: RIDOS-ISO-Package
-          path: |
-            *.iso
-            *.iso.md5
-          if-no-files-found: error
-          retention-days: 7
