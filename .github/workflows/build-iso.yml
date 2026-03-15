@@ -3,122 +3,97 @@ name: Build RIDOS OS ISO
 on:
   push:
     branches: [ main ]
-    tags: [ "v*" ]
   workflow_dispatch:
 
 jobs:
   build-iso:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 120
-
+    runs-on: ubuntu-24.04  # Updated to 24.04 to fix that Node.js 20 warning
+    permissions:
+      contents: write
+    
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          sudo apt-get update -qq
+          sudo apt-get update
           sudo apt-get install -y \
             debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin grub2-common \
-            mtools dosfstools gnupg2 curl wget \
-            imagemagick librsvg2-bin syslinux-utils
-          echo "Done"
+            mtools dosfstools rsync
+          echo "Dependencies installed."
 
-      - name: Bootstrap Debian
+      - name: Bootstrap and Build System
         run: |
-          curl -fsSL https://ftp-master.debian.org/keys/release-12.asc \
-            | sudo gpg --dearmor -o /usr/share/keyrings/debian-bookworm.gpg
-          sudo debootstrap \
-            --arch=amd64 \
-            --variant=minbase \
-            --keyring=/usr/share/keyrings/debian-bookworm.gpg \
-            --include=systemd,systemd-sysv,udev,sudo,locales,bash,apt-transport-https,ca-certificates \
-            bookworm chroot http://deb.debian.org/debian/
-          echo "Bootstrap done"
-
-      - name: Install all packages
-        run: |
-          sudo mount --bind /dev chroot/dev
-          sudo mount --bind /proc chroot/proc
-          sudo mount --bind /sys chroot/sys
-          sudo mount --bind /run chroot/run
-
-          sudo tee chroot/etc/apt/sources.list << 'EOF'
-          deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
-          deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
-          deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+          # Create working directories
+          sudo mkdir -p chroot iso/live iso/boot/grub
+          
+          # 1. Bootstrap Minimal Debian
+          sudo debootstrap --arch=amd64 --variant=minbase bookworm chroot http://deb.debian.org/debian/
+          
+          # 2. Install Kernel and Bootloader inside chroot
+          sudo chroot chroot apt-get update
+          sudo chroot chroot apt-get install -y --no-install-recommends \
+            linux-image-amd64 live-boot initramfs-tools
+          
+          # 3. Build SquashFS
+          sudo mksquashfs chroot filesystem.squashfs -comp xz
+          sudo cp filesystem.squashfs iso/live/
+          
+          # 4. Copy Kernel/Initrd to ISO folder
+          sudo cp chroot/boot/vmlinuz-* iso/live/vmlinuz
+          sudo cp chroot/boot/initrd.img-* iso/live/initrd
+          
+          # 5. Create GRUB Config
+          sudo tee iso/boot/grub/grub.cfg << 'EOF'
+          set default=0
+          set timeout=1
+          menuentry "RIDOS OS" {
+            linux /live/vmlinuz boot=live quiet splash
+            initrd /live/initrd
+          }
           EOF
 
-          sudo chroot chroot apt-get update -qq
-
-          # Core system
-          sudo chroot chroot apt-get install -y \
-            live-boot live-boot-initramfs-tools \
-            linux-image-amd64 initramfs-tools \
-            grub-pc grub2-common \
-            bash-completion tzdata locales
-
-          # Hardware drivers
-          sudo chroot chroot apt-get install -y \
-            firmware-linux firmware-linux-free firmware-linux-nonfree \
-            firmware-iwlwifi firmware-atheros firmware-realtek \
-            firmware-b43-installer firmware-amd-graphics \
-            firmware-misc-nonfree intel-microcode amd64-microcode \
-            xserver-xorg xserver-xorg-video-all \
-            xserver-xorg-input-all \
-            xserver-xorg-video-intel xserver-xorg-video-amdgpu \
-            xserver-xorg-video-nouveau xserver-xorg-video-fbdev \
-            xserver-xorg-video-vesa \
-            alsa-utils pulseaudio pulseaudio-utils \
-            bluez bluetooth \
-            cups printer-driver-all \
-            network-manager network-manager-gnome \
-            wpasupplicant wireless-tools \
-            usb-modeswitch pciutils usbutils \
-            acpi acpid laptop-detect \
-            ntfs-3g exfat-fuse \
-            --no-install-recommends || true
-
-          # XFCE Desktop
-          sudo chroot chroot apt-get install -y \
-            xfce4 xfce4-terminal xfce4-whiskermenu-plugin \
-            xfce4-power-manager xfce4-notifyd \
-            lightdm lightdm-gtk-greeter \
-            thunar thunar-archive-plugin \
-            ristretto mousepad \
-            adwaita-icon-theme papirus-icon-theme \
-            fonts-dejavu fonts-liberation fonts-noto \
-            fonts-noto-color-emoji
-
-          # Browsers
-          sudo chroot chroot apt-get install -y firefox-esr
-
-          # Dev & IT tools
-          sudo chroot chroot apt-get install -y \
-            python3 python3-pip python3-venv \
-            python3-flask python3-flask-socketio \
-            python3-requests python3-psutil \
-            git vim nano curl wget \
-            nmap net-tools traceroute \
-            openssh-client openssh-server \
-            htop neofetch tree \
-            zip unzip p7zip-full \
-            parted gparted \
-            rsync dosfstools \
-            smartmontools hdparm \
-            memtest86+ \
-            lshw dmidecode \
-            iotop iftop \
-            wireshark-common tshark
-
-          sudo umount chroot/run chroot/sys chroot/proc chroot/dev
-          echo "All packages installed"
-
-      - name: Configure system
+      - name: Generate Hybrid ISO
         run: |
-          echo "idos-os" | sudo tee chroot/etc/hostname
+          # Create BIOS and EFI boot images
+          grub-mkimage -O i386-pc -o bios.core.img -p "/boot/grub" iso9660 linux normal biosdisk search
+          cat /usr/lib/grub/i386-pc/cdboot.img bios.core.img > bios.img
+          
+          grub-mkimage -O x86_64-efi -o bootx64.efi -p "/boot/grub" iso9660 linux normal search
+          dd if=/dev/zero of=efi.img bs=1M count=4
+          mkfs.vfat efi.img
+          mmd -i efi.img ::/EFI ::/EFI/boot
+          mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
 
-          sudo tee chroot/etc/hosts << 'EOF'
-          127.0.0.1 localhost
-          127.
+          # The Main ISO Generation
+          sudo xorriso -as mkisofs \
+            -iso-level 3 -volid "RIDOS_OS" \
+            --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
+            --mbr-force-bootable \
+            -eltorito-boot boot/grub/bios.img \
+            -eltorito-catalog boot/grub/boot.cat \
+            -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
+            -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat \
+            -o ridos-os-baghdad.iso \
+            -graft-points \
+            "/boot/grub/bios.img=bios.img" \
+            "/boot/grub/efi.img=efi.img" \
+            "/=iso"
+          
+          # Create checksum
+          md5sum ridos-os-baghdad.iso > ridos-os-baghdad.iso.md5
+          
+          # DEBUG: List files to ensure ISO exists
+          ls -lh *.iso
+
+      - name: Upload ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RIDOS-ISO-Package
+          path: |
+            *.iso
+            *.iso.md5
+          if-no-files-found: error
+          retention-days: 7
