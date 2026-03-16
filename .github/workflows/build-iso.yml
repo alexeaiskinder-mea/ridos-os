@@ -41,18 +41,63 @@ jobs:
           sudo chroot chroot apt-get update
           sudo chroot chroot apt-get install -y --no-install-recommends \
             live-boot live-boot-initramfs-tools linux-image-amd64 initramfs-tools \
-            xfce4 xfce4-terminal lightdm lightdm-gtk-greeter firefox-esr \
-            sudo network-manager bluetooth bluez pulseaudio alsa-utils \
+            xfce4 xfce4-terminal xfce4-power-manager xfce4-networkmanager-applet \
+            xfce4-pulseaudio-plugin xfce4-screensaver thunar thunar-volman \
+            lightdm lightdm-gtk-greeter firefox-esr \
+            sudo network-manager network-manager-gnome \
+            network-manager-openvpn wpasupplicant wireless-tools iw \
+            bluetooth bluez bluez-tools pulseaudio pulseaudio-module-bluetooth \
+            alsa-utils alsa-firmware-loaders pavucontrol \
+            xserver-xorg xserver-xorg-input-all xserver-xorg-video-all \
+            xserver-xorg-video-intel xserver-xorg-video-amdgpu \
+            xserver-xorg-video-nouveau xserver-xorg-video-radeon \
+            xserver-xorg-video-vmware xserver-xorg-video-fbdev \
+            mesa-vulkan-drivers mesa-va-drivers mesa-vdpau-drivers \
+            libgl1-mesa-dri libglx-mesa0 vainfo vdpauinfo \
             firmware-linux firmware-linux-nonfree firmware-misc-nonfree \
-            intel-microcode amd64-microcode neofetch htop git vim nano curl wget \
-            pciutils usbutils
+            firmware-iwlwifi firmware-atheros firmware-realtek \
+            firmware-brcm80211 firmware-libertas firmware-zd1211 \
+            firmware-ralink firmware-mediatek \
+            intel-microcode amd64-microcode \
+            acpi acpid acpi-support laptop-detect tlp \
+            upower thermald \
+            ntfs-3g exfat-fuse exfatprogs dosfstools \
+            gvfs gvfs-backends udisks2 \
+            cups cups-bsd printer-driver-gutenprint \
+            sane-utils libsane \
+            xdg-utils xdg-user-dirs \
+            dbus-x11 at-spi2-core \
+            neofetch htop git vim nano curl wget \
+            pciutils usbutils lshw dmidecode \
+            os-prober
 
           echo "ridos-os" | sudo tee chroot/etc/hostname
-          sudo chroot chroot useradd -m -s /bin/bash -G sudo ridos
+          sudo chroot chroot useradd -m -s /bin/bash -G sudo,audio,video,plugdev,netdev ridos
           echo "ridos:ridos" | sudo chroot chroot chpasswd
           echo "root:ridos"  | sudo chroot chroot chpasswd
 
-          sudo umount chroot/sys chroot/proc chroot/dev
+          # Enable LightDM as default display manager
+          sudo chroot chroot systemctl enable lightdm
+
+          # LightDM autologin config
+          sudo mkdir -p chroot/etc/lightdm/lightdm.conf.d
+          printf '[Seat:*]\nautologin-user=ridos\nautologin-user-timeout=0\nuser-session=xfce\ngreeter-session=lightdm-gtk-greeter\n' \
+            | sudo tee chroot/etc/lightdm/lightdm.conf.d/50-autologin.conf > /dev/null
+
+          # Ensure XFCE session file exists
+          sudo mkdir -p chroot/usr/share/xsessions
+          printf '[Desktop Entry]\nName=Xfce Session\nComment=Use this session to run Xfce\nExec=startxfce4\nIcon=\nType=Application\n' \
+            | sudo tee chroot/usr/share/xsessions/xfce.desktop > /dev/null
+
+          # live-boot live user config
+          sudo mkdir -p chroot/etc/live
+          printf 'LIVE_USERNAME=ridos\nLIVE_USER_FULLNAME=RIDOS User\nLIVE_HOSTNAME=ridos-os\n' \
+            | sudo tee chroot/etc/live/config.conf > /dev/null
+
+          # Enable essential services
+          sudo chroot chroot systemctl enable lightdm NetworkManager dbus
+
+          sudo umount chroot/sys chroot/proc chroot/dev 2>/dev/null || true
 
       - name: Size Reduction
         run: |
@@ -89,7 +134,7 @@ jobs:
           sudo find chroot/usr/share/info -type f -delete
           sudo find chroot/usr/share/groff -type f -delete 2>/dev/null || true
 
-          # 4. Slim firmware - keep only common desktop hardware (~400 MB saved)
+          # 4. Slim firmware - keep all PC/laptop hardware, drop server/mainframe only
           sudo chroot chroot bash -c "
             cd /lib/firmware
             find . -type f \
@@ -103,6 +148,24 @@ jobs:
               ! -path './qca*' \
               ! -path './regulatory*' \
               ! -path './intel*' \
+              ! -path './nvidia*' \
+              ! -path './nouveau*' \
+              ! -path './radeon*' \
+              ! -path './r600*' \
+              ! -path './si*' \
+              ! -path './ci*' \
+              ! -path './kl*' \
+              ! -path './bnx2*' \
+              ! -path './tigon*' \
+              ! -path './e100*' \
+              ! -path './ql*' \
+              ! -path './cx2341*' \
+              ! -path './snd*' \
+              ! -path './cs46xx*' \
+              ! -path './yamaha*' \
+              ! -path './v4l*' \
+              ! -path './usbdux*' \
+              ! -path './cpia*' \
               -delete
             find . -empty -type d -delete
           "
