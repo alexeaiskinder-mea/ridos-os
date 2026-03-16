@@ -664,24 +664,10 @@ jobs:
           cp "$KERNEL" iso/live/vmlinuz
           cp "$INITRD" iso/live/initrd
 
-          # GRUB config (UEFI)
-          cat > iso/boot/grub/grub.cfg << 'GRUBEOF'
-          set default=0
-          set timeout=5
-
-          menuentry "RIDOS OS v1.1.0 Baghdad" {
-            linux /live/vmlinuz boot=live quiet splash               noplymouth               systemd.mask=NetworkManager-wait-online.service               systemd.mask=systemd-networkd-wait-online.service               systemd.mask=plymouth-quit-wait.service               systemd.mask=avahi-daemon.service               systemd.mask=cups.service               systemd.mask=bluetooth.service               live-config.nonetworking               net.ifnames=0 biosdevname=0
-            initrd /live/initrd
-          }
-          menuentry "RIDOS OS (safe mode)" {
-            linux /live/vmlinuz boot=live nomodeset noplymouth live-config.nonetworking
-            initrd /live/initrd
-          }
-          menuentry "RIDOS OS (debug - no quiet)" {
-            linux /live/vmlinuz boot=live noplymouth live-config.nonetworking
-            initrd /live/initrd
-          }
-          GRUBEOF
+          # GRUB config - ip=none stops live-boot network wait
+          # components tells live-boot to activate all live components
+          printf 'set default=0\nset timeout=5\n\nmenuentry "RIDOS OS v1.1.0 Baghdad" {\n  linux /live/vmlinuz boot=live components quiet splash noplymouth ip=none\n  initrd /live/initrd\n}\nmenuentry "RIDOS OS (Safe Graphics)" {\n  linux /live/vmlinuz boot=live components nomodeset noplymouth ip=none\n  initrd /live/initrd\n}\nmenuentry "RIDOS OS (Debug)" {\n  linux /live/vmlinuz boot=live components noplymouth ip=none\n  initrd /live/initrd\n}\n' \
+            > iso/boot/grub/grub.cfg
 
           # isolinux files (Legacy BIOS + Rufus detection)
           cp /usr/lib/ISOLINUX/isolinux.bin               iso/isolinux/
@@ -690,11 +676,10 @@ jobs:
           cp /usr/lib/syslinux/modules/bios/libutil.c32   iso/isolinux/
           cp /usr/lib/syslinux/modules/bios/vesamenu.c32  iso/isolinux/
 
-          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live quiet splash noplymouth live-config.nonetworking systemd.mask=NetworkManager-wait-online.service systemd.mask=plymouth-quit-wait.service systemd.mask=avahi-daemon.service\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe Graphics Mode)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live nomodeset quiet splash\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live\n' \
+          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components quiet splash noplymouth ip=none\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe Graphics)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components nomodeset noplymouth ip=none\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components noplymouth ip=none\n' \
             > iso/isolinux/isolinux.cfg
 
           echo "ISO structure ready"
-
       # ── Step 10: Build hybrid ISO (Rufus + UEFI + Legacy BIOS) ──────────────
       - name: Build GRUB and create ISO
         run: |
