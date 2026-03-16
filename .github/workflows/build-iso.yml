@@ -92,8 +92,8 @@ jobs:
           # XFCE Desktop
           sudo chroot chroot apt-get install -y \
             xfce4 xfce4-terminal xfce4-whiskermenu-plugin \
-            xfce4-power-manager xfce4-notifyd xfce4-screensaver \
-            xfce4-pulseaudio-plugin xfce4-networkmanager-applet \
+            xfce4-power-manager xfce4-notifyd xscreensaver \
+            xfce4-pulseaudio-plugin network-manager-applet \
             lightdm lightdm-gtk-greeter \
             thunar thunar-archive-plugin thunar-volman \
             ristretto mousepad \
