@@ -23,7 +23,8 @@ jobs:
             debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin grub2-common \
             mtools dosfstools gnupg2 curl wget \
-            imagemagick librsvg2-bin syslinux-utils rsync
+            imagemagick librsvg2-bin syslinux-utils rsync \
+            isolinux syslinux syslinux-common
           echo "Done"
 
       - name: Bootstrap and Configure RIDOS
@@ -64,7 +65,7 @@ jobs:
       - name: Build SquashFS
         run: |
           sudo mksquashfs chroot filesystem.squashfs -comp xz -e boot
-          mkdir -p iso/live iso/boot/grub
+          mkdir -p iso/live iso/boot/grub iso/isolinux
           cp filesystem.squashfs iso/live/
           
           # Extract Kernel and Initrd
@@ -73,7 +74,7 @@ jobs:
           cp "$KERNEL" iso/live/vmlinuz
           cp "$INITRD" iso/live/initrd
 
-          # GRUB Config
+          # GRUB Config (used for UEFI boot)
           cat > iso/boot/grub/grub.cfg << 'EOF'
           set default=0
           set timeout=5
@@ -83,12 +84,39 @@ jobs:
           }
           EOF
 
+          # ── isolinux boot files (BIOS / Rufus compatibility) ──
+          cp /usr/lib/ISOLINUX/isolinux.bin          iso/isolinux/
+          cp /usr/lib/syslinux/modules/bios/ldlinux.c32   iso/isolinux/
+          cp /usr/lib/syslinux/modules/bios/libcom32.c32  iso/isolinux/
+          cp /usr/lib/syslinux/modules/bios/libutil.c32   iso/isolinux/
+          cp /usr/lib/syslinux/modules/bios/vesamenu.c32  iso/isolinux/
+
+          # isolinux config — mirrors GRUB menu entries
+          cat > iso/isolinux/isolinux.cfg << 'EOF'
+          UI vesamenu.c32
+          TIMEOUT 50
+          PROMPT 0
+
+          MENU TITLE RIDOS OS v1.1.0 Baghdad
+
+          LABEL live
+            MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)
+            KERNEL /live/vmlinuz
+            APPEND initrd=/live/initrd boot=live quiet splash
+
+          LABEL live-safe
+            MENU LABEL RIDOS OS (Safe Graphics Mode)
+            KERNEL /live/vmlinuz
+            APPEND initrd=/live/initrd boot=live nomodeset quiet splash
+
+          LABEL live-ram
+            MENU LABEL RIDOS OS (Copy to RAM)
+            KERNEL /live/vmlinuz
+            APPEND initrd=/live/initrd boot=live toram quiet splash
+          EOF
+
       - name: Build Hybrid ISO
         run: |
-          # Create BIOS boot image
-          grub-mkimage -O i386-pc -o bios.core.img -p "/boot/grub" iso9660 linux normal biosdisk search
-          cat /usr/lib/grub/i386-pc/cdboot.img bios.core.img > bios.img
-
           # Create UEFI boot image
           grub-mkimage -O x86_64-efi -o bootx64.efi -p "/boot/grub" iso9660 linux normal search
           dd if=/dev/zero of=efi.img bs=1M count=4
@@ -96,19 +124,27 @@ jobs:
           mmd -i efi.img ::/EFI ::/EFI/boot
           mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
 
-          # Generate the ISO with the specific fix for the "efi image" error
+          # ── Build hybrid ISO ──
+          # - isolinux handles Legacy BIOS (what Rufus looks for)
+          # - efi.img   handles UEFI
+          # - isohdpfx.bin injects the MBR hybrid signature Rufus requires
           sudo xorriso -as mkisofs \
             -iso-level 3 \
             -volid "RIDOS_OS" \
-            --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-            --mbr-force-bootable \
-            -eltorito-boot boot/grub/bios.img \
-            -eltorito-catalog boot/grub/boot.cat \
-            -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
-            -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat \
+            \
+            -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+            \
+            -eltorito-boot isolinux/isolinux.bin \
+            -eltorito-catalog isolinux/boot.cat \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            \
+            -eltorito-alt-boot \
+            -e boot/grub/efi.img \
+            -no-emul-boot \
+            -isohybrid-gpt-basdat \
+            \
             -o ridos-os-1.1.0-Baghdad-x86_64.iso \
             -graft-points \
-            "/boot/grub/bios.img=bios.img" \
             "/boot/grub/efi.img=efi.img" \
             "/=iso"
 
