@@ -154,51 +154,82 @@ jobs:
           echo "ridos:ridos" | sudo chroot chroot chpasswd
           echo "root:ridos"  | sudo chroot chroot chpasswd
 
-          # LightDM - show login screen
+          # ── Purge packages that cause boot hangs ──────────────────────────────
+          sudo chroot chroot apt-get purge -y \
+            exim4 exim4-base exim4-config exim4-daemon-light \
+            2>/dev/null || true
+          sudo chroot chroot apt-get autoremove -y --purge 2>/dev/null || true
+
+          # ── Mask ALL services that cause black screen hangs ───────────────────
+          for SVC in \
+            NetworkManager-wait-online.service \
+            systemd-networkd-wait-online.service \
+            systemd-networkd.service \
+            plymouth-quit-wait.service \
+            plymouth-read-write.service \
+            apt-daily.service \
+            apt-daily-upgrade.service \
+            apt-daily.timer \
+            apt-daily-upgrade.timer \
+            motd-news.timer \
+            motd-news.service \
+            cups.service \
+            cups-browsed.service \
+            bluetooth.service \
+            exim4.service \
+            rsyslog.service \
+            avahi-daemon.service \
+            avahi-daemon.socket \
+            ModemManager.service \
+            wpa_supplicant.service \
+            ifupdown-pre.service \
+            networking.service \
+            e2scrub_reap.service \
+            fstrim.timer \
+            man-db.timer \
+            dpkg-db-backup.timer; do
+            sudo chroot chroot systemctl mask "$SVC" 2>/dev/null || true
+          done
+
+          # ── Enable only what is needed ────────────────────────────────────────
+          sudo chroot chroot systemctl enable lightdm acpid 2>/dev/null || true
+
+          # ── LightDM: autologin + branding ─────────────────────────────────────
           sudo mkdir -p chroot/etc/lightdm/lightdm.conf.d
-          printf '[Seat:*]\nuser-session=xfce\ngreeter-session=lightdm-gtk-greeter\n' \
+          printf '[Seat:*]\nautologin-user=ridos\nautologin-user-timeout=0\nuser-session=xfce\ngreeter-session=lightdm-gtk-greeter\n' \
             | sudo tee chroot/etc/lightdm/lightdm.conf.d/50-ridos.conf > /dev/null
 
-          # LightDM RIDOS branding
           printf '[greeter]\nbackground=#6B21A8\ntheme-name=Adwaita-dark\nicon-theme-name=Papirus-Dark\nfont-name=Noto Sans 11\nindicators=~host;~spacer;~clock;~spacer;~power\nclock-format=%%A, %%d %%B %%Y  %%H:%%M\nposition=50%%,center 50%%,center\n' \
             | sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
 
-          # OS release branding
+          # ── Ensure XFCE session exists ────────────────────────────────────────
+          sudo mkdir -p chroot/usr/share/xsessions
+          printf '[Desktop Entry]\nName=Xfce Session\nComment=Use this session to run Xfce\nExec=startxfce4\nIcon=\nType=Application\n' \
+            | sudo tee chroot/usr/share/xsessions/xfce.desktop > /dev/null
+
+          # ── NetworkManager offline mode ───────────────────────────────────────
+          sudo mkdir -p chroot/etc/NetworkManager/conf.d
+          printf '[main]\nplugins=ifupdown,keyfile\n\n[ifupdown]\nmanaged=false\n' \
+            | sudo tee chroot/etc/NetworkManager/conf.d/offline.conf > /dev/null
+
+          # ── live-boot offline config ──────────────────────────────────────────
+          sudo mkdir -p chroot/etc/live
+          printf 'LIVE_HOSTNAME=ridos-os\nLIVE_USERNAME=ridos\n' \
+            | sudo tee chroot/etc/live/config.conf > /dev/null
+
+          # ── Systemd fast timeouts (fast boot + fast shutdown 5s) ─────────────
+          sudo mkdir -p chroot/etc/systemd/system.conf.d
+          printf '[Manager]\nDefaultTimeoutStartSec=5s\nDefaultTimeoutStopSec=5s\nDefaultDeviceTimeoutSec=5s\nShutdownWatchdogSec=10s\n' \
+            | sudo tee chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
+
+          # ── OS release branding ───────────────────────────────────────────────
           printf 'PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"\nNAME="RIDOS OS"\nVERSION_ID="1.1.0"\nVERSION="1.1.0 (Baghdad)"\nID=ridos\nID_LIKE=debian\nHOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"\nSUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"\nBUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"\n' \
             | sudo tee chroot/etc/os-release > /dev/null
 
           printf 'RIDOS OS v1.1.0 Baghdad - AI-Powered Linux\nUsername: ridos | Password: ridos\n' \
             | sudo tee chroot/etc/issue > /dev/null
 
-          # Fast shutdown 5 seconds
-          sudo mkdir -p chroot/etc/systemd/system.conf.d
-          printf '[Manager]\nDefaultTimeoutStopSec=5s\nDefaultTimeoutStartSec=10s\nShutdownWatchdogSec=10s\n' \
-            | sudo tee chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
-
-          # Enable only essential services
-          sudo chroot chroot systemctl enable lightdm NetworkManager acpid 2>/dev/null || true
-
-          # Disable services that cause boot hangs in live environment
-          sudo chroot chroot systemctl disable NetworkManager-wait-online.service 2>/dev/null || true
-          sudo chroot chroot systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
-          sudo chroot chroot systemctl disable cups cups-browsed 2>/dev/null || true
-          sudo chroot chroot systemctl disable bluetooth 2>/dev/null || true
-          sudo chroot chroot systemctl disable exim4 2>/dev/null || true
-          sudo chroot chroot systemctl disable apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
-          sudo chroot chroot systemctl disable apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
-          sudo chroot chroot systemctl disable motd-news.timer 2>/dev/null || true
-
-          # Purge exim4 - mail server not needed
-          sudo chroot chroot apt-get purge -y exim4 exim4-base exim4-config exim4-daemon-light 2>/dev/null || true
-          sudo chroot chroot apt-get autoremove -y --purge 2>/dev/null || true
-
-          # Mask the worst offenders so they can never start
-          sudo chroot chroot systemctl mask NetworkManager-wait-online.service 2>/dev/null || true
-          sudo chroot chroot systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
-          sudo chroot chroot systemctl mask plymouth-quit-wait.service 2>/dev/null || true
-
           echo "System configured"
-
       # ── Step 5: Apply RIDOS branding and theme ───────────────────────────────
       - name: Apply RIDOS branding and theme
         run: |
@@ -639,15 +670,15 @@ jobs:
           set timeout=5
 
           menuentry "RIDOS OS v1.1.0 Baghdad" {
-            linux /live/vmlinuz boot=live quiet splash noplymouth systemd.mask=NetworkManager-wait-online.service
+            linux /live/vmlinuz boot=live quiet splash               noplymouth               systemd.mask=NetworkManager-wait-online.service               systemd.mask=systemd-networkd-wait-online.service               systemd.mask=plymouth-quit-wait.service               systemd.mask=avahi-daemon.service               systemd.mask=cups.service               systemd.mask=bluetooth.service               live-config.nonetworking               net.ifnames=0 biosdevname=0
             initrd /live/initrd
           }
           menuentry "RIDOS OS (safe mode)" {
-            linux /live/vmlinuz boot=live nomodeset
+            linux /live/vmlinuz boot=live nomodeset noplymouth live-config.nonetworking
             initrd /live/initrd
           }
-          menuentry "RIDOS OS (debug)" {
-            linux /live/vmlinuz boot=live
+          menuentry "RIDOS OS (debug - no quiet)" {
+            linux /live/vmlinuz boot=live noplymouth live-config.nonetworking
             initrd /live/initrd
           }
           GRUBEOF
@@ -659,7 +690,7 @@ jobs:
           cp /usr/lib/syslinux/modules/bios/libutil.c32   iso/isolinux/
           cp /usr/lib/syslinux/modules/bios/vesamenu.c32  iso/isolinux/
 
-          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live quiet splash noplymouth systemd.mask=NetworkManager-wait-online.service\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe Graphics Mode)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live nomodeset quiet splash\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live\n' \
+          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live quiet splash noplymouth live-config.nonetworking systemd.mask=NetworkManager-wait-online.service systemd.mask=plymouth-quit-wait.service systemd.mask=avahi-daemon.service\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe Graphics Mode)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live nomodeset quiet splash\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live\n' \
             > iso/isolinux/isolinux.cfg
 
           echo "ISO structure ready"
