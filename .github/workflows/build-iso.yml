@@ -664,9 +664,11 @@ jobs:
       # ── Step 8: Build SquashFS ────────────────────────────────────────────────
       - name: Build squashfs
         run: |
+          # lz4 = fast decompression (critical for live boot, avoids CPU lockup)
+          # xz ultra was causing swapper/0 deadlock on decompression
           sudo mksquashfs chroot filesystem.squashfs \
-            -comp xz -Xdict-size 100% -Xbcj x86 \
-            -b 1M -no-progress -e boot
+            -comp lz4 -Xhc \
+            -b 256K -no-progress -e boot
           echo "squashfs: $(du -sh filesystem.squashfs)"
 
       # ── Step 9: Prepare ISO structure ────────────────────────────────────────
