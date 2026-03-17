@@ -208,14 +208,25 @@ jobs:
             | sudo tee chroot/usr/share/xsessions/xfce.desktop > /dev/null
 
           # ── Force X11 fbdev driver - works with nomodeset on any GPU ─────────
-          # Without this X tries KMS drivers first and crashes with nomodeset
           sudo mkdir -p chroot/etc/X11/xorg.conf.d
-          printf 'Section "Device"\n  Identifier "Default"\n  Driver "fbdev"\n  Option "fbdev" "/dev/fb0"\nEndSection\n\nSection "Screen"\n  Identifier "Default Screen"\n  Device "Default"\nEndSection\n' \
-            | sudo tee chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo 'Section "Device"'                      | sudo tee    chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo '  Identifier "Default"'                | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo '  Driver "fbdev"'                      | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo '  Option "fbdev" "/dev/fb0"'           | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo 'EndSection'                            | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo ''                                      | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo 'Section "Screen"'                      | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo '  Identifier "Default Screen"'         | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo '  Device "Default"'                    | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+          echo 'EndSection'                            | sudo tee -a chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
+
           # ── Stop LightDM crash-restart loop ───────────────────────────────────
           sudo mkdir -p chroot/etc/systemd/system/lightdm.service.d
-          printf '[Service]\nRestart=no\nStartLimitBurst=2\nStartLimitIntervalSec=60\n' \\
-            | sudo tee chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
+          echo '[Service]'              | sudo tee    chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
+          echo 'Restart=no'            | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
+          echo 'StartLimitBurst=2'     | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
+          echo 'StartLimitIntervalSec=60' | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
+
 
           # ── NetworkManager offline mode ───────────────────────────────────────
           sudo mkdir -p chroot/etc/NetworkManager/conf.d
