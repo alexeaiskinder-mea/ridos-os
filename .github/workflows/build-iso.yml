@@ -194,160 +194,113 @@ jobs:
       # ── Step 4: Configure system ──────────────────────────────────────────────
       - name: Configure system
         run: |
+          # ── Hostname & hosts ─────────────────────────────────────────────────
           echo "ridos-os" | sudo tee chroot/etc/hostname
+          echo '127.0.0.1 localhost' | sudo tee    chroot/etc/hosts > /dev/null
+          echo '127.0.1.1 ridos-os' | sudo tee -a chroot/etc/hosts > /dev/null
 
-          printf '127.0.0.1 localhost\n127.0.1.1 ridos-os\n' \
-            | sudo tee chroot/etc/hosts > /dev/null
-
-          printf 'en_US.UTF-8 UTF-8\nar_IQ.UTF-8 UTF-8\n' \
-            | sudo tee chroot/etc/locale.gen > /dev/null
+          # ── Locale & timezone ────────────────────────────────────────────────
+          echo 'en_US.UTF-8 UTF-8' | sudo tee    chroot/etc/locale.gen > /dev/null
+          echo 'ar_IQ.UTF-8 UTF-8' | sudo tee -a chroot/etc/locale.gen > /dev/null
           sudo chroot chroot locale-gen
-          echo "LANG=en_US.UTF-8" | sudo tee chroot/etc/default/locale
-
+          echo "LANG=en_US.UTF-8"  | sudo tee chroot/etc/default/locale
           sudo chroot chroot ln -sf /usr/share/zoneinfo/Asia/Baghdad /etc/localtime
 
+          # ── User setup ───────────────────────────────────────────────────────
           sudo chroot chroot useradd -m -s /bin/bash \
-            -G sudo,audio,video,netdev,plugdev,bluetooth ridos
+            -G sudo,audio,video,netdev,plugdev,bluetooth,cdrom,dialout ridos
           echo "ridos:ridos" | sudo chroot chroot chpasswd
           echo "root:ridos"  | sudo chroot chroot chpasswd
 
-          # ── Purge packages that cause boot hangs ──────────────────────────────
+          # ── Remove problematic packages ──────────────────────────────────────
           sudo chroot chroot apt-get purge -y \
             exim4 exim4-base exim4-config exim4-daemon-light \
             2>/dev/null || true
           sudo chroot chroot apt-get autoremove -y --purge 2>/dev/null || true
 
-          # ── Mask ALL services that cause black screen hangs ───────────────────
+          # ── Mask services that cause boot hangs ──────────────────────────────
+          # Only mask what truly causes hangs - keep ModemManager for 3G/4G
           for SVC in \
             NetworkManager-wait-online.service \
             systemd-networkd-wait-online.service \
-            systemd-networkd.service \
             plymouth-quit-wait.service \
-            plymouth-read-write.service \
-            apt-daily.service \
-            apt-daily-upgrade.service \
-            apt-daily.timer \
-            apt-daily-upgrade.timer \
-            motd-news.timer \
-            motd-news.service \
-            cups.service \
-            cups-browsed.service \
-            bluetooth.service \
+            apt-daily.service apt-daily-upgrade.service \
+            apt-daily.timer apt-daily-upgrade.timer \
+            motd-news.timer motd-news.service \
             exim4.service \
-            rsyslog.service \
-            avahi-daemon.service \
-            avahi-daemon.socket \
-            ModemManager.service \
-            wpa_supplicant.service \
-            ifupdown-pre.service \
-            networking.service \
             e2scrub_reap.service \
-            fstrim.timer \
-            man-db.timer \
-            dpkg-db-backup.timer; do
+            fstrim.timer man-db.timer dpkg-db-backup.timer; do
             sudo chroot chroot systemctl mask "$SVC" 2>/dev/null || true
           done
 
-          # ── Enable only what is needed ────────────────────────────────────────
-          sudo chroot chroot systemctl enable lightdm acpid 2>/dev/null || true
+          # ── Enable essential services ─────────────────────────────────────────
+          sudo chroot chroot systemctl enable lightdm NetworkManager acpid 2>/dev/null || true
 
-          # ── LightDM: autologin + branding ─────────────────────────────────────
-          sudo mkdir -p chroot/etc/lightdm/lightdm.conf.d
-          # Seat config now in lightdm.conf (above) - this file just holds branding
-          echo '# RIDOS OS LightDM config - seat settings in /etc/lightdm/lightdm.conf' \
-            | sudo tee chroot/etc/lightdm/lightdm.conf.d/50-ridos.conf > /dev/null
+          # ── LightDM complete config (single clean file) ───────────────────────
+          sudo mkdir -p chroot/etc/lightdm chroot/etc/lightdm/lightdm.conf.d
+          echo '[LightDM]'                            | sudo tee    chroot/etc/lightdm/lightdm.conf > /dev/null
+          echo 'logind-check-graphical=false'         | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
+          echo '[Seat:*]'                              | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
+          echo 'autologin-user=ridos'                 | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
+          echo 'autologin-user-timeout=0'             | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
+          echo 'user-session=xfce'                    | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
+          echo 'greeter-session=lightdm-gtk-greeter'  | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
+          echo 'xserver-allow-tcp=false'              | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
 
-          printf '[greeter]\nbackground=#6B21A8\ntheme-name=Adwaita-dark\nicon-theme-name=Papirus-Dark\nfont-name=Noto Sans 11\nindicators=~host;~spacer;~clock;~spacer;~power\nclock-format=%%A, %%d %%B %%Y  %%H:%%M\nposition=50%%,center 50%%,center\n' \
-            | sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
+          # ── LightDM greeter branding ──────────────────────────────────────────
+          echo '[greeter]'                             | sudo tee    chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
+          echo 'background=#1a0a2e'                   | sudo tee -a chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
+          echo 'theme-name=Adwaita-dark'              | sudo tee -a chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
+          echo 'icon-theme-name=Papirus-Dark'         | sudo tee -a chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
+          echo 'font-name=Noto Sans 11'               | sudo tee -a chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
 
-          # ── Ensure XFCE session exists ────────────────────────────────────────
+          # ── XFCE session file ─────────────────────────────────────────────────
           sudo mkdir -p chroot/usr/share/xsessions
-          printf '[Desktop Entry]\nName=Xfce Session\nComment=Use this session to run Xfce\nExec=startxfce4\nIcon=\nType=Application\n' \
-            | sudo tee chroot/usr/share/xsessions/xfce.desktop > /dev/null
+          echo '[Desktop Entry]'                   | sudo tee    chroot/usr/share/xsessions/xfce.desktop > /dev/null
+          echo 'Name=Xfce Session'                 | sudo tee -a chroot/usr/share/xsessions/xfce.desktop > /dev/null
+          echo 'Exec=startxfce4'                   | sudo tee -a chroot/usr/share/xsessions/xfce.desktop > /dev/null
+          echo 'Type=Application'                  | sudo tee -a chroot/usr/share/xsessions/xfce.desktop > /dev/null
 
-          # ── X11 display: use vesa driver (nomodeset already set in kernel) ──────
-          # vesa works on ALL hardware without /dev/fb0 dependency
-          # nomodeset in kernel cmdline tells X to auto-select vesa/fbdev safely
+          # ── X11 config: vesa for live boot (works on ALL hardware) ────────────
+          # vesa driver = no KMS = no GPU driver needed = no lockup
           sudo mkdir -p chroot/etc/X11/xorg.conf.d
-          echo 'Section "Device"'     | sudo tee    chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
-          echo '  Identifier "Card0"' | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
-          echo '  Driver "vesa"'      | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
-          echo 'EndSection'           | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo 'Section "Device"'           | sudo tee    chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo '  Identifier "Card0"'       | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo '  Driver "vesa"'            | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo 'EndSection'                 | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo 'Section "Screen"'           | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo '  Identifier "Screen0"'     | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo '  Device "Card0"'           | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo '  DefaultDepth 16'          | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
+          echo 'EndSection'                 | sudo tee -a chroot/etc/X11/xorg.conf.d/20-display.conf > /dev/null
 
-          # ── LightDM: drop to console on failure instead of crash loop ──────────
+          # ── LightDM service: no restart loop ─────────────────────────────────
           sudo mkdir -p chroot/etc/systemd/system/lightdm.service.d
-          echo '[Service]'               | sudo tee    chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
-          echo 'Restart=no'             | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
-          echo 'StartLimitBurst=1'      | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
-          echo 'StartLimitIntervalSec=30' | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
+          echo '[Service]'              | sudo tee    chroot/etc/systemd/system/lightdm.service.d/ridos.conf > /dev/null
+          echo 'Restart=on-failure'     | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/ridos.conf > /dev/null
+          echo 'RestartSec=3s'          | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/ridos.conf > /dev/null
+          echo 'StartLimitBurst=3'      | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/ridos.conf > /dev/null
+          echo 'StartLimitIntervalSec=30' | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/ridos.conf > /dev/null
 
-          # ── Ensure vesa + fbdev packages installed ────────────────────────────
-          sudo chroot chroot apt-get install -y xserver-xorg-video-vesa xserver-xorg-video-fbdev 2>/dev/null || true
-
-          # ── Create LightDM X wrapper that falls back gracefully ───────────────
-          sudo mkdir -p chroot/etc/lightdm
-          echo '[LightDM]'                        | sudo tee    chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo 'logind-check-graphical=false'     | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo ''                                 | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo '[Seat:*]'                          | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo 'autologin-user=ridos'             | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo 'autologin-user-timeout=0'         | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo 'user-session=xfce'                | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo 'greeter-session=lightdm-gtk-greeter' | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-          echo 'xserver-command=X -core'          | sudo tee -a chroot/etc/lightdm/lightdm.conf > /dev/null
-
-          echo 'Restart=no'            | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
-          echo 'StartLimitBurst=2'     | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
-          echo 'StartLimitIntervalSec=60' | sudo tee -a chroot/etc/systemd/system/lightdm.service.d/no-restart.conf > /dev/null
-
-
-          # ── NetworkManager offline mode ───────────────────────────────────────
-          sudo mkdir -p chroot/etc/NetworkManager/conf.d
-          printf '[main]\nplugins=ifupdown,keyfile\n\n[ifupdown]\nmanaged=false\n' \
-            | sudo tee chroot/etc/NetworkManager/conf.d/offline.conf > /dev/null
-
-          # ── live-boot offline config ──────────────────────────────────────────
-          sudo mkdir -p chroot/etc/live
-          printf 'LIVE_HOSTNAME=ridos-os\nLIVE_USERNAME=ridos\n' \
-            | sudo tee chroot/etc/live/config.conf > /dev/null
-
-          # ── Systemd fast timeouts (fast boot + fast shutdown 5s) ─────────────
-          sudo mkdir -p chroot/etc/systemd/system.conf.d
-          printf '[Manager]\nDefaultTimeoutStartSec=5s\nDefaultTimeoutStopSec=5s\nDefaultDeviceTimeoutSec=5s\nShutdownWatchdogSec=10s\n' \
-            | sudo tee chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
-
-          # ── OS release branding ───────────────────────────────────────────────
-          printf 'PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"\nNAME="RIDOS OS"\nVERSION_ID="1.1.0"\nVERSION="1.1.0 (Baghdad)"\nID=ridos\nID_LIKE=debian\nHOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"\nSUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"\nBUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"\n' \
-            | sudo tee chroot/etc/os-release > /dev/null
-
-          printf 'RIDOS OS v1.1.0 Baghdad - AI-Powered Linux\nUsername: ridos | Password: ridos\n' \
-            | sudo tee chroot/etc/issue > /dev/null
-
-          # ── Fix Intel+NVIDIA Optimus CPU soft lockup ─────────────────────────
+          # ── GPU: blacklist nouveau only (not all NVIDIA) ──────────────────────
+          # blacklist nouveau = prevents Optimus lockup
+          # do NOT blacklist i915 - Intel needs it for VESA fallback
           sudo mkdir -p chroot/etc/modprobe.d
+          echo 'blacklist nouveau'      | sudo tee    chroot/etc/modprobe.d/blacklist-nouveau.conf > /dev/null
+          echo 'blacklist nvidiafb'     | sudo tee -a chroot/etc/modprobe.d/blacklist-nouveau.conf > /dev/null
+          echo 'options nouveau modeset=0' | sudo tee -a chroot/etc/modprobe.d/blacklist-nouveau.conf > /dev/null
 
-          # Blacklist ALL NVIDIA/nouveau drivers completely
-          printf 'blacklist nouveau\nblacklist nvidia\nblacklist nvidiafb\nblacklist rivafb\nblacklist rivatv\nblacklist nv\nblacklist uvcvideo\noptions nouveau modeset=0\noptions nvidia-drm modeset=0\n' \
-            | sudo tee chroot/etc/modprobe.d/blacklist-nvidia.conf > /dev/null
+          # ── Disable watchdog (prevents false lockup reports) ──────────────────
+          echo 'blacklist iTCO_wdt'         | sudo tee    chroot/etc/modprobe.d/disable-watchdog.conf > /dev/null
+          echo 'blacklist iTCO_vendor_support' | sudo tee -a chroot/etc/modprobe.d/disable-watchdog.conf > /dev/null
 
-          # Force Intel GPU, disable power management that causes lockup
-          printf 'options i915 modeset=1 enable_psr=0 enable_rc6=0 enable_fbc=0\n' \
-            | sudo tee chroot/etc/modprobe.d/intel-gpu.conf > /dev/null
+          # ── initramfs: keep MODULES=most for live boot compatibility ──────────
+          # MODULES=most ensures all drivers available on any hardware
+          echo 'MODULES=most'   | sudo tee    chroot/etc/initramfs-tools/conf.d/live.conf > /dev/null
+          echo 'BUSYBOX=auto'   | sudo tee -a chroot/etc/initramfs-tools/conf.d/live.conf > /dev/null
+          echo 'COMPRESS=lz4'   | sudo tee -a chroot/etc/initramfs-tools/conf.d/live.conf > /dev/null
 
-          # Disable watchdog that reports the lockup (masks symptom cleanly)
-          printf 'blacklist iTCO_wdt\nblacklist iTCO_vendor_support\n' \
-            | sudo tee chroot/etc/modprobe.d/disable-watchdog.conf > /dev/null
-
-          # initramfs config - only load what is needed for live boot
-          printf 'MODULES=dep\nBUSYBOX=auto\nCOMPRESS=lz4\n' \
-            | sudo tee chroot/etc/initramfs-tools/initramfs.conf > /dev/null
-
-          # Force blacklists into initramfs
-          sudo mkdir -p chroot/etc/initramfs-tools/conf.d
-          printf 'MODULES=dep\n' \
-            | sudo tee chroot/etc/initramfs-tools/conf.d/driver-policy.conf > /dev/null
-
-          # Rebuild initramfs with blacklists baked in
+          # ── Rebuild initramfs with all fixes baked in ─────────────────────────
           sudo mount --bind /dev  chroot/dev
           sudo mount --bind /proc chroot/proc
           sudo mount --bind /sys  chroot/sys
@@ -355,21 +308,40 @@ jobs:
           sudo chroot chroot update-initramfs -u -k "$KVER" 2>/dev/null || true
           sudo umount chroot/sys chroot/proc chroot/dev 2>/dev/null || true
 
-          # ── Kernel compatibility tweaks for old/new hardware ─────────────────
+          # ── NetworkManager offline mode ───────────────────────────────────────
+          sudo mkdir -p chroot/etc/NetworkManager/conf.d
+          echo '[main]'          | sudo tee    chroot/etc/NetworkManager/conf.d/offline.conf > /dev/null
+          echo 'plugins=keyfile' | sudo tee -a chroot/etc/NetworkManager/conf.d/offline.conf > /dev/null
+          echo '[ifupdown]'      | sudo tee -a chroot/etc/NetworkManager/conf.d/offline.conf > /dev/null
+          echo 'managed=false'   | sudo tee -a chroot/etc/NetworkManager/conf.d/offline.conf > /dev/null
+
+          # ── live-boot config ──────────────────────────────────────────────────
+          sudo mkdir -p chroot/etc/live
+          echo 'LIVE_HOSTNAME=ridos-os' | sudo tee    chroot/etc/live/config.conf > /dev/null
+          echo 'LIVE_USERNAME=ridos'    | sudo tee -a chroot/etc/live/config.conf > /dev/null
+
+          # ── Systemd timeouts ──────────────────────────────────────────────────
+          sudo mkdir -p chroot/etc/systemd/system.conf.d
+          echo '[Manager]'                    | sudo tee    chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
+          echo 'DefaultTimeoutStartSec=10s'   | sudo tee -a chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
+          echo 'DefaultTimeoutStopSec=5s'     | sudo tee -a chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
+          echo 'ShutdownWatchdogSec=10s'      | sudo tee -a chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
+
+          # ── OS branding ───────────────────────────────────────────────────────
+          echo 'PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"' | sudo tee    chroot/etc/os-release > /dev/null
+          echo 'NAME="RIDOS OS"'                       | sudo tee -a chroot/etc/os-release > /dev/null
+          echo 'VERSION_ID="1.1.0"'                    | sudo tee -a chroot/etc/os-release > /dev/null
+          echo 'VERSION="1.1.0 (Baghdad)"'             | sudo tee -a chroot/etc/os-release > /dev/null
+          echo 'ID=ridos'                              | sudo tee -a chroot/etc/os-release > /dev/null
+          echo 'ID_LIKE=debian'                        | sudo tee -a chroot/etc/os-release > /dev/null
+          echo 'RIDOS OS v1.1.0 Baghdad'               | sudo tee    chroot/etc/issue > /dev/null
+          echo 'Username: ridos | Password: ridos'     | sudo tee -a chroot/etc/issue > /dev/null
+
+          # ── Kernel sysctl tweaks ──────────────────────────────────────────────
           sudo mkdir -p chroot/etc/sysctl.d
-          echo 'vm.swappiness=10'                  | sudo tee    chroot/etc/sysctl.d/99-ridos.conf > /dev/null
-          echo 'vm.vfs_cache_pressure=50'          | sudo tee -a chroot/etc/sysctl.d/99-ridos.conf > /dev/null
-          echo 'kernel.printk=3 4 1 3'            | sudo tee -a chroot/etc/sysctl.d/99-ridos.conf > /dev/null
-          echo 'net.core.netdev_max_backlog=1000'  | sudo tee -a chroot/etc/sysctl.d/99-ridos.conf > /dev/null
-
-          # ── udev rules for USB/HID compatibility ─────────────────────────────
-          sudo mkdir -p chroot/etc/udev/rules.d
-          echo 'ACTION=="add", SUBSYSTEM=="usb", TEST=="power/control", ATTR{power/control}="on"' \
-            | sudo tee chroot/etc/udev/rules.d/99-usb-power.rules > /dev/null
-
-          # ── PAM limits for live session ───────────────────────────────────────
-          echo 'ridos soft nofile 65536'  | sudo tee    chroot/etc/security/limits.d/ridos.conf > /dev/null
-          echo 'ridos hard nofile 65536'  | sudo tee -a chroot/etc/security/limits.d/ridos.conf > /dev/null
+          echo 'vm.swappiness=10'           | sudo tee    chroot/etc/sysctl.d/99-ridos.conf > /dev/null
+          echo 'vm.vfs_cache_pressure=50'   | sudo tee -a chroot/etc/sysctl.d/99-ridos.conf > /dev/null
+          echo 'kernel.printk=3 4 1 3'     | sudo tee -a chroot/etc/sysctl.d/99-ridos.conf > /dev/null
 
           echo "System configured"
       # ── Step 5: Apply RIDOS branding and theme ───────────────────────────────
@@ -855,7 +827,7 @@ jobs:
           # Entry 2: Old PC    - acpi=off for pre-2008 machines
           # Entry 3: High RAM  - for 4GB+ machines
           # Entry 4: Debug     - verbose output
-          printf 'set default=0\\nset timeout=10\\n\\nmenuentry "RIDOS OS v1.1.0 Baghdad" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 nvidia-drm.modeset=0 i915.modeset=0 radeon.modeset=0 amdgpu.modeset=0 loglevel=3\\n  initrd /live/initrd\\n}\\nmenuentry "RIDOS OS (Old PC / ACPI off)" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset vga=771 noplymouth nosplash acpi=off noapic nolapic irqpoll pci=nomsi nouveau.modeset=0 loglevel=3\\n  initrd /live/initrd\\n}\\nmenuentry "RIDOS OS (High RAM 4GB+)" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 mem=4G loglevel=3\\n  initrd /live/initrd\\n}\\nmenuentry "RIDOS OS (Debug)" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset\\n  initrd /live/initrd\\n}\\n' \
+          printf 'set default=0\\nset timeout=10\\n\\nmenuentry "RIDOS OS v1.1.0 Baghdad" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 nvidia-drm.modeset=0 loglevel=3\\n  initrd /live/initrd\\n}\\nmenuentry "RIDOS OS (Old PC / ACPI off)" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset vga=771 noplymouth nosplash acpi=off noapic nolapic irqpoll pci=nomsi nouveau.modeset=0 loglevel=3\\n  initrd /live/initrd\\n}\\nmenuentry "RIDOS OS (High RAM 4GB+)" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 mem=4G loglevel=3\\n  initrd /live/initrd\\n}\\nmenuentry "RIDOS OS (Debug)" {\\n  linux /live/vmlinuz boot=live components ip=none nomodeset\\n  initrd /live/initrd\\n}\\n' \
             > iso/boot/grub/grub.cfg
 
           # isolinux files (Legacy BIOS + Rufus detection)
@@ -865,7 +837,7 @@ jobs:
           cp /usr/lib/syslinux/modules/bios/libutil.c32   iso/isolinux/
           cp /usr/lib/syslinux/modules/bios/vesamenu.c32  iso/isolinux/
 
-          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 nvidia-drm.modeset=0 i915.modeset=0 radeon.modeset=0 amdgpu.modeset=0 loglevel=3\n\nLABEL oldpc\n  MENU LABEL RIDOS OS (Old PC / ACPI off)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset vga=771 noplymouth nosplash acpi=off noapic nolapic irqpoll pci=nomsi nouveau.modeset=0 loglevel=3\n\nLABEL highmem\n  MENU LABEL RIDOS OS (High RAM 4GB+)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 mem=4G loglevel=3\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset\n' \
+          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 nvidia-drm.modeset=0 loglevel=3\n\nLABEL oldpc\n  MENU LABEL RIDOS OS (Old PC / ACPI off)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset vga=771 noplymouth nosplash acpi=off noapic nolapic irqpoll pci=nomsi nouveau.modeset=0 loglevel=3\n\nLABEL highmem\n  MENU LABEL RIDOS OS (High RAM 4GB+)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset vga=771 noplymouth nosplash nouveau.modeset=0 mem=4G loglevel=3\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset\n' \
             > iso/isolinux/isolinux.cfg
 
           echo "ISO structure ready"
