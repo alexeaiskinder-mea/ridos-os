@@ -8,16 +8,13 @@ on:
 
 jobs:
   build-iso:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    permissions:
-      contents: write
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # ── Step 1: Install build tools ─────────────────────────────────────────
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
@@ -25,11 +22,9 @@ jobs:
             debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin grub2-common \
             mtools dosfstools gnupg2 curl wget \
-            imagemagick librsvg2-bin syslinux-utils rsync \
-            isolinux syslinux syslinux-common
+            imagemagick librsvg2-bin
           echo "Done"
 
-      # ── Step 2: Bootstrap Debian ─────────────────────────────────────────────
       - name: Bootstrap Debian
         run: |
           curl -fsSL https://ftp-master.debian.org/keys/release-12.asc \
@@ -42,16 +37,18 @@ jobs:
             bookworm chroot http://deb.debian.org/debian/
           echo "Bootstrap done"
 
-      # ── Step 3: Install all packages ─────────────────────────────────────────
       - name: Install all packages
         run: |
-          sudo mount --bind /dev  chroot/dev
+          sudo mount --bind /dev chroot/dev
           sudo mount --bind /proc chroot/proc
-          sudo mount --bind /sys  chroot/sys
-          sudo mount --bind /run  chroot/run
+          sudo mount --bind /sys chroot/sys
+          sudo mount --bind /run chroot/run
 
-          printf 'deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware\ndeb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware\ndeb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware\n' \
-            | sudo tee chroot/etc/apt/sources.list > /dev/null
+          sudo tee chroot/etc/apt/sources.list << 'EOF'
+          deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+          deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+          deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+          EOF
 
           sudo chroot chroot apt-get update -qq
 
@@ -62,7 +59,7 @@ jobs:
             grub-pc grub2-common \
             bash-completion tzdata locales
 
-          # Hardware drivers - full PC/laptop support
+          # Hardware drivers
           sudo chroot chroot apt-get install -y \
             firmware-linux firmware-linux-free firmware-linux-nonfree \
             firmware-iwlwifi firmware-atheros firmware-realtek \
@@ -71,37 +68,30 @@ jobs:
             xserver-xorg xserver-xorg-video-all \
             xserver-xorg-input-all \
             xserver-xorg-video-intel xserver-xorg-video-amdgpu \
-            xserver-xorg-video-nouveau xserver-xorg-video-radeon \
-            xserver-xorg-video-fbdev xserver-xorg-video-vesa \
-            xserver-xorg-video-vmware \
-            mesa-vulkan-drivers mesa-va-drivers mesa-vdpau-drivers \
-            libgl1-mesa-dri libglx-mesa0 \
-            alsa-utils pulseaudio pulseaudio-utils pulseaudio-module-bluetooth \
-            pavucontrol alsa-firmware-loaders \
-            bluez bluetooth bluez-tools \
+            xserver-xorg-video-nouveau xserver-xorg-video-fbdev \
+            xserver-xorg-video-vesa \
+            alsa-utils pulseaudio pulseaudio-utils \
+            bluez bluetooth \
             cups printer-driver-all \
-            sane-utils libsane \
             network-manager network-manager-gnome \
-            wpasupplicant wireless-tools iw \
+            wpasupplicant wireless-tools \
             usb-modeswitch pciutils usbutils \
-            acpi acpid acpi-support laptop-detect tlp upower thermald \
-            ntfs-3g exfat-fuse exfatprogs dosfstools \
-            gvfs gvfs-backends udisks2 \
+            acpi acpid laptop-detect \
+            ntfs-3g exfat-fuse \
             --no-install-recommends || true
 
           # XFCE Desktop
           sudo chroot chroot apt-get install -y \
             xfce4 xfce4-terminal xfce4-whiskermenu-plugin \
-            xfce4-power-manager xfce4-notifyd xscreensaver \
-            xfce4-pulseaudio-plugin \
+            xfce4-power-manager xfce4-notifyd \
             lightdm lightdm-gtk-greeter \
-            thunar thunar-archive-plugin thunar-volman \
+            thunar thunar-archive-plugin \
             ristretto mousepad \
             adwaita-icon-theme papirus-icon-theme \
             fonts-dejavu fonts-liberation fonts-noto \
             fonts-noto-color-emoji
 
-          # Browser
+          # Browsers
           sudo chroot chroot apt-get install -y firefox-esr
 
           # Dev & IT tools
@@ -115,35 +105,27 @@ jobs:
             htop neofetch tree \
             zip unzip p7zip-full \
             parted gparted \
-            rsync
-
-          # Diagnostic tools (AI Hardware Fixer / Security Scanner)
-          sudo chroot chroot apt-get install -y \
-            smartmontools \
+            rsync dosfstools \
+            smartmontools hdparm \
             memtest86+ \
-            wireshark tshark \
             lshw dmidecode \
-            hdparm sdparm nvme-cli \
-            stress-ng \
-            iotop iftop nethogs \
-            lynis rkhunter chkrootkit \
-            fail2ban ufw \
-            dbus-x11 at-spi2-core xdg-utils xdg-user-dirs \
-            os-prober
+            iotop iftop \
+            wireshark-common tshark
 
-          sudo umount chroot/run chroot/sys chroot/proc chroot/dev 2>/dev/null || true
+          sudo umount chroot/run chroot/sys chroot/proc chroot/dev
           echo "All packages installed"
 
-      # ── Step 4: Configure system ──────────────────────────────────────────────
       - name: Configure system
         run: |
           echo "ridos-os" | sudo tee chroot/etc/hostname
 
-          printf '127.0.0.1 localhost\n127.0.1.1 ridos-os\n' \
-            | sudo tee chroot/etc/hosts > /dev/null
+          sudo tee chroot/etc/hosts << 'EOF'
+          127.0.0.1 localhost
+          127.0.1.1 ridos-os
+          EOF
 
-          printf 'en_US.UTF-8 UTF-8\nar_IQ.UTF-8 UTF-8\n' \
-            | sudo tee chroot/etc/locale.gen > /dev/null
+          echo "en_US.UTF-8 UTF-8" | sudo tee chroot/etc/locale.gen
+          echo "ar_IQ.UTF-8 UTF-8" | sudo tee -a chroot/etc/locale.gen
           sudo chroot chroot locale-gen
           echo "LANG=en_US.UTF-8" | sudo tee chroot/etc/default/locale
 
@@ -152,107 +134,65 @@ jobs:
           sudo chroot chroot useradd -m -s /bin/bash \
             -G sudo,audio,video,netdev,plugdev,bluetooth ridos
           echo "ridos:ridos" | sudo chroot chroot chpasswd
-          echo "root:ridos"  | sudo chroot chroot chpasswd
+          echo "root:ridos" | sudo chroot chroot chpasswd
 
-          # ── Purge packages that cause boot hangs ──────────────────────────────
-          sudo chroot chroot apt-get purge -y \
-            exim4 exim4-base exim4-config exim4-daemon-light \
-            2>/dev/null || true
-          sudo chroot chroot apt-get autoremove -y --purge 2>/dev/null || true
-
-          # ── Mask ALL services that cause black screen hangs ───────────────────
-          for SVC in \
-            NetworkManager-wait-online.service \
-            systemd-networkd-wait-online.service \
-            systemd-networkd.service \
-            plymouth-quit-wait.service \
-            plymouth-read-write.service \
-            apt-daily.service \
-            apt-daily-upgrade.service \
-            apt-daily.timer \
-            apt-daily-upgrade.timer \
-            motd-news.timer \
-            motd-news.service \
-            cups.service \
-            cups-browsed.service \
-            bluetooth.service \
-            exim4.service \
-            rsyslog.service \
-            avahi-daemon.service \
-            avahi-daemon.socket \
-            ModemManager.service \
-            wpa_supplicant.service \
-            ifupdown-pre.service \
-            networking.service \
-            e2scrub_reap.service \
-            fstrim.timer \
-            man-db.timer \
-            dpkg-db-backup.timer; do
-            sudo chroot chroot systemctl mask "$SVC" 2>/dev/null || true
-          done
-
-          # ── Enable only what is needed ────────────────────────────────────────
-          sudo chroot chroot systemctl enable lightdm acpid 2>/dev/null || true
-
-          # ── LightDM: autologin + branding ─────────────────────────────────────
+          # LightDM - show login screen (NO autologin)
           sudo mkdir -p chroot/etc/lightdm/lightdm.conf.d
-          printf '[Seat:*]\nautologin-user=ridos\nautologin-user-timeout=0\nuser-session=xfce\ngreeter-session=lightdm-gtk-greeter\n' \
-            | sudo tee chroot/etc/lightdm/lightdm.conf.d/50-ridos.conf > /dev/null
+          sudo tee chroot/etc/lightdm/lightdm.conf.d/50-ridos.conf << 'EOF'
+          [Seat:*]
+          user-session=xfce
+          greeter-session=lightdm-gtk-greeter
+          EOF
 
-          printf '[greeter]\nbackground=#6B21A8\ntheme-name=Adwaita-dark\nicon-theme-name=Papirus-Dark\nfont-name=Noto Sans 11\nindicators=~host;~spacer;~clock;~spacer;~power\nclock-format=%%A, %%d %%B %%Y  %%H:%%M\nposition=50%%,center 50%%,center\n' \
-            | sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf > /dev/null
+          # LightDM RIDOS branding on login screen
+          sudo tee chroot/etc/lightdm/lightdm-gtk-greeter.conf << 'EOF'
+          [greeter]
+          background=#6B21A8
+          theme-name=Adwaita-dark
+          icon-theme-name=Papirus-Dark
+          font-name=Noto Sans 11
+          indicators=~host;~spacer;~clock;~spacer;~power
+          clock-format=%A, %d %B %Y  %H:%M
+          position=50%,center 50%,center
+          EOF
 
-          # ── Ensure XFCE session exists ────────────────────────────────────────
-          sudo mkdir -p chroot/usr/share/xsessions
-          printf '[Desktop Entry]\nName=Xfce Session\nComment=Use this session to run Xfce\nExec=startxfce4\nIcon=\nType=Application\n' \
-            | sudo tee chroot/usr/share/xsessions/xfce.desktop > /dev/null
+          # RIDOS OS release branding
+          sudo tee chroot/etc/os-release << 'EOF'
+          PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"
+          NAME="RIDOS OS"
+          VERSION_ID="1.1.0"
+          VERSION="1.1.0 (Baghdad)"
+          ID=ridos
+          ID_LIKE=debian
+          HOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"
+          SUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
+          BUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"
+          EOF
 
-          # ── NetworkManager offline mode ───────────────────────────────────────
-          sudo mkdir -p chroot/etc/NetworkManager/conf.d
-          printf '[main]\nplugins=ifupdown,keyfile\n\n[ifupdown]\nmanaged=false\n' \
-            | sudo tee chroot/etc/NetworkManager/conf.d/offline.conf > /dev/null
+          sudo tee chroot/etc/issue << 'EOF'
+          RIDOS OS v1.1.0 Baghdad - AI-Powered Linux
+          Username: ridos | Password: ridos
+          EOF
 
-          # ── live-boot offline config ──────────────────────────────────────────
-          sudo mkdir -p chroot/etc/live
-          printf 'LIVE_HOSTNAME=ridos-os\nLIVE_USERNAME=ridos\n' \
-            | sudo tee chroot/etc/live/config.conf > /dev/null
-
-          # ── Systemd fast timeouts (fast boot + fast shutdown 5s) ─────────────
+          # Fast shutdown 5 seconds
           sudo mkdir -p chroot/etc/systemd/system.conf.d
-          printf '[Manager]\nDefaultTimeoutStartSec=5s\nDefaultTimeoutStopSec=5s\nDefaultDeviceTimeoutSec=5s\nShutdownWatchdogSec=10s\n' \
-            | sudo tee chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
+          sudo tee chroot/etc/systemd/system.conf.d/timeout.conf << 'EOF'
+          [Manager]
+          DefaultTimeoutStopSec=5s
+          DefaultTimeoutStartSec=10s
+          ShutdownWatchdogSec=10s
+          EOF
 
-          # ── OS release branding ───────────────────────────────────────────────
-          printf 'PRETTY_NAME="RIDOS OS v1.1.0 Baghdad"\nNAME="RIDOS OS"\nVERSION_ID="1.1.0"\nVERSION="1.1.0 (Baghdad)"\nID=ridos\nID_LIKE=debian\nHOME_URL="https://github.com/alexeaiskinder-mea/ridos-os"\nSUPPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"\nBUG_REPORT_URL="https://github.com/alexeaiskinder-mea/ridos-os/issues"\n' \
-            | sudo tee chroot/etc/os-release > /dev/null
-
-          printf 'RIDOS OS v1.1.0 Baghdad - AI-Powered Linux\nUsername: ridos | Password: ridos\n' \
-            | sudo tee chroot/etc/issue > /dev/null
-
-          # ── Blacklist nouveau - causes soft lockup on Intel+NVIDIA Optimus ────
-          sudo mkdir -p chroot/etc/modprobe.d
-          printf 'blacklist nouveau\nblacklist nvidiafb\nblacklist rivafb\noptions nouveau modeset=0\n' \
-            | sudo tee chroot/etc/modprobe.d/blacklist-nouveau.conf > /dev/null
-
-          # Force Intel GPU as primary (Optimus systems)
-          printf 'options i915 modeset=1\n' \
-            | sudo tee chroot/etc/modprobe.d/intel-gpu.conf > /dev/null
-
-          # Rebuild initramfs so blacklist is included in early boot
-          sudo mount --bind /dev  chroot/dev
-          sudo mount --bind /proc chroot/proc
-          sudo mount --bind /sys  chroot/sys
-          KVER=$(ls chroot/boot/vmlinuz-* | sort -V | tail -1 | sed 's|.*/vmlinuz-||')
-          sudo chroot chroot update-initramfs -u -k "$KVER" 2>/dev/null || true
-          sudo umount chroot/sys chroot/proc chroot/dev 2>/dev/null || true
+          # Enable services
+          sudo chroot chroot systemctl enable lightdm NetworkManager \
+            bluetooth cups acpid 2>/dev/null || true
 
           echo "System configured"
-      # ── Step 5: Apply RIDOS branding and theme ───────────────────────────────
+
       - name: Apply RIDOS branding and theme
         run: |
           sudo mkdir -p chroot/home/ridos/.config/xfce4/xfconf/xfce-perchannel-xml
 
-          # XFCE theme settings
           sudo tee chroot/home/ridos/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <channel name="xsettings" version="1.0">
@@ -268,7 +208,6 @@ jobs:
           </channel>
           EOF
 
-          # Desktop wallpaper - dark purple
           sudo tee chroot/home/ridos/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <channel name="xfce4-desktop" version="1.0">
@@ -291,7 +230,6 @@ jobs:
           </channel>
           EOF
 
-          # Window manager theme
           sudo tee chroot/home/ridos/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <channel name="xfwm4" version="1.0">
@@ -314,58 +252,6 @@ jobs:
           Comment=AI-powered IT Assistant
           Exec=xfce4-terminal --title="RIDOS AI Shell" -e "python3 /opt/ridos/bin/ridos_shell.py"
           Icon=utilities-terminal
-          Terminal=false
-          Categories=System;
-          EOF
-
-          # AI System Doctor shortcut
-          sudo tee chroot/home/ridos/Desktop/ridos-doctor.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=AI System Doctor
-          Comment=AI-powered system diagnostics and repair
-          Exec=xfce4-terminal --title="AI System Doctor" -e "python3 /opt/ridos/bin/system_doctor.py"
-          Icon=computer
-          Terminal=false
-          Categories=System;
-          EOF
-
-          # AI Network Analyzer shortcut
-          sudo tee chroot/home/ridos/Desktop/ridos-network.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=AI Network Analyzer
-          Comment=Advanced AI network analysis and diagnostics
-          Exec=xfce4-terminal --title="AI Network Analyzer" -e "python3 /opt/ridos/bin/network_analyzer.py"
-          Icon=network-wired
-          Terminal=false
-          Categories=Network;System;
-          EOF
-
-          # AI Hardware Fixer shortcut
-          sudo tee chroot/home/ridos/Desktop/ridos-hardware.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=AI Hardware Fixer
-          Comment=HDD/SSD/NVMe/RAM diagnostics and repair
-          Exec=xfce4-terminal --title="AI Hardware Fixer" -e "python3 /opt/ridos/bin/hardware_fixer.py"
-          Icon=drive-harddisk
-          Terminal=false
-          Categories=System;
-          EOF
-
-          # AI Security Scanner shortcut
-          sudo tee chroot/home/ridos/Desktop/ridos-security.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=AI Security Scanner
-          Comment=AI-powered security audit and threat detection
-          Exec=xfce4-terminal --title="AI Security Scanner" -e "python3 /opt/ridos/bin/security_scanner.py"
-          Icon=security-high
           Terminal=false
           Categories=System;
           EOF
@@ -395,35 +281,114 @@ jobs:
           Categories=System;
           EOF
 
-          sudo chmod +x chroot/home/ridos/Desktop/*.desktop
+          sudo tee chroot/home/ridos/Desktop/ai-features.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=RIDOS AI Tools
+          Comment=AI Network Analyzer, System Doctor, Security Scanner
+          Exec=xfce4-terminal --title="RIDOS AI Tools" -e "python3 /opt/ridos/bin/ai_features.py"
+          Icon=utilities-system-monitor
+          Terminal=false
+          Categories=System;Network;
+          EOF
 
-          printf 'TerminalEmulator=xfce4-terminal\n' \
-            | sudo tee chroot/home/ridos/.config/xfce4/helpers.rc > /dev/null
+          sudo tee chroot/home/ridos/Desktop/system-doctor.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI System Doctor
+          Comment=AI health check | طبيب النظام الذكي
+          Exec=xfce4-terminal --title="AI System Doctor" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 2; read'"
+          Icon=utilities-system-monitor
+          Terminal=false
+          Categories=System;
+          EOF
+
+          sudo tee chroot/home/ridos/Desktop/hardware-fixer.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI Hardware Fixer
+          Comment=HDD/SSD/NVMe/RAM diagnostics | فحص وإصلاح العتاد
+          Exec=xfce4-terminal --title="AI Hardware Fixer" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 4; read'"
+          Icon=drive-harddisk
+          Terminal=false
+          Categories=System;
+          EOF
+
+          sudo tee chroot/home/ridos/Desktop/security-scanner.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI Security Scanner
+          Comment=AI cybersecurity scanner | الماسح الأمني الذكي
+          Exec=xfce4-terminal --title="AI Security Scanner" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 5; read'"
+          Icon=security-high
+          Terminal=false
+          Categories=System;Network;
+          EOF
+
+          sudo tee chroot/home/ridos/Desktop/network-analyzer.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI Network Analyzer
+          Comment=Advanced network analysis | محلل الشبكة المتقدم
+          Exec=xfce4-terminal --title="AI Network Analyzer" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 3; read'"
+          Icon=network-wired
+          Terminal=false
+          Categories=Network;System;
+          EOF
+
+          sudo chmod +x chroot/home/ridos/Desktop/*.desktop
+          sudo tee chroot/home/ridos/.config/xfce4/helpers.rc << 'EOF'
+          TerminalEmulator=xfce4-terminal
+          EOF
 
           # Plymouth boot splash
           sudo mkdir -p chroot/usr/share/plymouth/themes/ridos
-          printf '[Plymouth Theme]\nName=RIDOS OS\nDescription=RIDOS OS Boot Splash\nModuleName=script\n\n[script]\nImageDir=/usr/share/plymouth/themes/ridos\nScriptFile=/usr/share/plymouth/themes/ridos/ridos.script\n' \
-            | sudo tee chroot/usr/share/plymouth/themes/ridos/ridos.plymouth > /dev/null
+          sudo tee chroot/usr/share/plymouth/themes/ridos/ridos.plymouth << 'EOF'
+          [Plymouth Theme]
+          Name=RIDOS OS
+          Description=RIDOS OS Boot Splash
+          ModuleName=script
 
-          printf 'Window.SetBackgroundTopColor(0.42, 0.13, 0.66);\nWindow.SetBackgroundBottomColor(0.12, 0.07, 0.27);\nmessage_sprite = Sprite();\nmessage_sprite.SetPosition(Window.GetWidth()/2 - 150, Window.GetHeight()/2 - 20, 10000);\nfun refresh_callback() {\n  message_image = Image.Text("RIDOS OS v1.1.0 Baghdad", 1.0, 1.0, 1.0);\n  message_sprite.SetImage(message_image);\n}\nPlymouth.SetRefreshFunction(refresh_callback);\n' \
-            | sudo tee chroot/usr/share/plymouth/themes/ridos/ridos.script > /dev/null
+          [script]
+          ImageDir=/usr/share/plymouth/themes/ridos
+          ScriptFile=/usr/share/plymouth/themes/ridos/ridos.script
+          EOF
+
+          sudo tee chroot/usr/share/plymouth/themes/ridos/ridos.script << 'EOF'
+          Window.SetBackgroundTopColor(0.42, 0.13, 0.66);
+          Window.SetBackgroundBottomColor(0.12, 0.07, 0.27);
+          message_sprite = Sprite();
+          message_sprite.SetPosition(Window.GetWidth()/2 - 150, Window.GetHeight()/2 - 20, 10000);
+          fun refresh_callback() {
+            message_image = Image.Text("RIDOS OS v1.1.0 Baghdad", 1.0, 1.0, 1.0);
+            message_sprite.SetImage(message_image);
+          }
+          Plymouth.SetRefreshFunction(refresh_callback);
+          EOF
 
           sudo chroot chroot chown -R ridos:ridos /home/ridos
           echo "Branding applied"
 
-      # ── Step 6: Install RIDOS core AI tools and installer ────────────────────
       - name: Install RIDOS core files and installer
         run: |
           sudo mkdir -p chroot/opt/ridos/bin
           sudo mkdir -p chroot/usr/share/ridos
           sudo cp ridos-core/*.py chroot/opt/ridos/bin/
+          sudo cp build-system/scripts/ai_features.py chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo chmod +x chroot/opt/ridos/bin/*.py
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
-               chroot/usr/share/ridos/ 2>/dev/null || true
+               chroot/usr/share/ridos/
 
-          # HDD Installer script
+          # RIDOS HDD Installer script
           sudo tee chroot/opt/ridos/bin/ridos-install.sh << 'INSTALLEOF'
           #!/bin/bash
+          # RIDOS OS HDD Installer
+
           clear
           echo "============================================"
           echo "   RIDOS OS v1.1.0 Baghdad - HDD Installer"
@@ -431,59 +396,87 @@ jobs:
           echo ""
           echo "WARNING: This will ERASE all data on the selected disk!"
           echo ""
+
+          # List available disks
           echo "Available disks:"
           lsblk -d -o NAME,SIZE,MODEL | grep -v loop
           echo ""
+
           read -p "Enter disk to install to (e.g. sda, sdb): " DISK
           DISK="/dev/$DISK"
+
           if [ ! -b "$DISK" ]; then
             echo "ERROR: Disk $DISK not found!"
             read -p "Press Enter to exit..."
             exit 1
           fi
+
           echo ""
           echo "You selected: $DISK"
           lsblk "$DISK"
           echo ""
           read -p "ARE YOU SURE? All data on $DISK will be ERASED! Type YES to continue: " CONFIRM
+
           if [ "$CONFIRM" != "YES" ]; then
             echo "Installation cancelled."
             read -p "Press Enter to exit..."
             exit 0
           fi
+
           echo ""
           echo "Starting installation..."
+
+          # Partition the disk
           echo "Partitioning disk..."
           parted -s "$DISK" mklabel msdos
           parted -s "$DISK" mkpart primary ext4 1MiB 100%
           parted -s "$DISK" set 1 boot on
+
           PARTITION="${DISK}1"
           sleep 2
+
+          # Format partition
           echo "Formatting partition..."
           mkfs.ext4 -F "$PARTITION"
+
+          # Mount partition
           echo "Mounting partition..."
           mkdir -p /mnt/ridos-install
           mount "$PARTITION" /mnt/ridos-install
+
+          # Copy system
           echo "Copying RIDOS OS files (this may take 10-20 minutes)..."
           rsync -ax --exclude=/proc --exclude=/sys --exclude=/dev \
             --exclude=/run --exclude=/mnt --exclude=/media \
             / /mnt/ridos-install/
+
+          # Create required dirs
           mkdir -p /mnt/ridos-install/{proc,sys,dev,run,mnt,media}
+
+          # Install GRUB bootloader
           echo "Installing GRUB bootloader..."
-          mount --bind /dev  /mnt/ridos-install/dev
+          mount --bind /dev /mnt/ridos-install/dev
           mount --bind /proc /mnt/ridos-install/proc
-          mount --bind /sys  /mnt/ridos-install/sys
+          mount --bind /sys /mnt/ridos-install/sys
+
+          # Update fstab
           UUID=$(blkid -s UUID -o value "$PARTITION")
           echo "UUID=$UUID / ext4 errors=remount-ro 0 1" > /mnt/ridos-install/etc/fstab
+
+          # Remove live-boot from installed system
           chroot /mnt/ridos-install apt-get remove -y live-boot live-boot-initramfs-tools 2>/dev/null || true
           chroot /mnt/ridos-install update-initramfs -u 2>/dev/null || true
           chroot /mnt/ridos-install grub-install "$DISK"
           chroot /mnt/ridos-install update-grub
+
+          # Update GRUB config for installed system
           sed -i 's/boot=live //' /mnt/ridos-install/boot/grub/grub.cfg 2>/dev/null || true
+
           umount /mnt/ridos-install/sys
           umount /mnt/ridos-install/proc
           umount /mnt/ridos-install/dev
           umount /mnt/ridos-install
+
           echo ""
           echo "============================================"
           echo "  RIDOS OS installed successfully!"
@@ -494,7 +487,7 @@ jobs:
 
           sudo chmod +x chroot/opt/ridos/bin/ridos-install.sh
 
-          # MOTD welcome banner
+          # RIDOS welcome banner
           sudo tee chroot/etc/motd << 'EOF'
 
             ██████╗ ██╗██████╗  ██████╗ ███████╗
@@ -507,12 +500,8 @@ jobs:
             RIDOS OS v1.1.0 "Baghdad"
             AI-Powered Linux for IT Professionals
             Username: ridos  |  Password: ridos
-            AI Shell:    python3 /opt/ridos/bin/ridos_shell.py
-            AI Doctor:   python3 /opt/ridos/bin/system_doctor.py
-            AI Network:  python3 /opt/ridos/bin/network_analyzer.py
-            AI Hardware: python3 /opt/ridos/bin/hardware_fixer.py
-            AI Security: python3 /opt/ridos/bin/security_scanner.py
-            Install:     sudo /opt/ridos/bin/ridos-install.sh
+            AI Shell: python3 /opt/ridos/bin/ridos_shell.py
+            Install:  sudo /opt/ridos/bin/ridos-install.sh
 
           EOF
 
@@ -522,7 +511,7 @@ jobs:
           [Desktop Entry]
           Type=Application
           Name=RIDOS Welcome
-          Exec=xfce4-terminal --title="RIDOS OS v1.1.0 Baghdad" -e "bash -c 'neofetch; echo; echo \"  Welcome to RIDOS OS v1.1.0 Baghdad\"; echo \"  AI Shell:    python3 /opt/ridos/bin/ridos_shell.py\"; echo \"  Install:     sudo /opt/ridos/bin/ridos-install.sh\"; echo; bash'"
+          Exec=xfce4-terminal --title="RIDOS OS v1.1.0 Baghdad" -e "bash -c 'neofetch; echo; echo \"  Welcome to RIDOS OS v1.1.0 Baghdad\"; echo \"  AI Shell: python3 /opt/ridos/bin/ridos_shell.py\"; echo \"  Install:  sudo /opt/ridos/bin/ridos-install.sh\"; echo; bash'"
           Hidden=false
           NoDisplay=false
           X-GNOME-Autostart-enabled=true
@@ -548,206 +537,67 @@ jobs:
           sudo chroot chroot chown -R ridos:ridos /home/ridos
           echo "RIDOS files installed"
 
-      # ── Step 7: Size reduction pass ──────────────────────────────────────────
-      # Removes bloat while keeping all drivers, AI tools, and desktop intact
-      - name: Size Reduction
-        run: |
-          sudo mount --bind /dev  chroot/dev
-          sudo mount --bind /proc chroot/proc
-          sudo mount --bind /sys  chroot/sys
-
-          echo "--- Chroot size BEFORE reduction ---"
-          sudo du -sh --exclude=chroot/proc --exclude=chroot/sys --exclude=chroot/dev chroot/ || true
-
-          # 1. Purge packages never needed in a live desktop ISO
-          sudo chroot chroot apt-get purge -y --auto-remove \
-            task-* libreoffice* gnome-games* aisleriot \
-            thunderbird* evolution* transmission* rhythmbox* totem* \
-            gcc-12 cpp-12 binutils linux-headers-* texlive* \
-            2>/dev/null || true
-          sudo chroot chroot apt-get autoremove -y --purge
-          sudo chroot chroot apt-get clean
-
-          # 2. Locale purge - keep English and Arabic (Iraq) only
-          sudo chroot chroot apt-get install -y localepurge
-          printf 'MANDELETE\nDONTBOTHERNEWLOCALE\nSHOWFREEDSPACE\nen\nen_US\nen_US.UTF-8\nar\nar_IQ\nar_IQ.UTF-8\n' \
-            | sudo tee chroot/etc/locale.nopurge > /dev/null
-          sudo chroot chroot localepurge
-          sudo find chroot/usr/share/locale -mindepth 1 -maxdepth 1 \
-            ! -name 'en' ! -name 'en_US' ! -name 'ar' ! -name 'ar_IQ' \
-            ! -name 'locale.alias' \
-            -exec rm -rf {} + 2>/dev/null || true
-
-          # 3. Strip docs, man pages, info pages (~250 MB saved)
-          sudo find chroot/usr/share/doc  -depth -type f ! -name copyright -delete
-          sudo find chroot/usr/share/doc  -empty -type d -delete
-          sudo find chroot/usr/share/man  -type f -delete
-          sudo find chroot/usr/share/man  -empty -type d -delete
-          sudo find chroot/usr/share/info -type f -delete
-          sudo find chroot/usr/share/groff -type f -delete 2>/dev/null || true
-
-          # 4. Slim firmware - keep all PC/laptop hardware, drop server/mainframe only
-          sudo chroot chroot bash -c "
-            cd /lib/firmware
-            find . -type f \
-              ! -path './iwlwifi*' \
-              ! -path './amdgpu*' \
-              ! -path './i915*' \
-              ! -path './rtl*' \
-              ! -path './brcm*' \
-              ! -path './ath*' \
-              ! -path './mediatek*' \
-              ! -path './qca*' \
-              ! -path './regulatory*' \
-              ! -path './intel*' \
-              ! -path './nvidia*' \
-              ! -path './nouveau*' \
-              ! -path './radeon*' \
-              ! -path './r600*' \
-              ! -path './snd*' \
-              ! -path './cs46xx*' \
-              ! -path './yamaha*' \
-              -delete
-            find . -empty -type d -delete
-          "
-
-          # 5. Trim server/mainframe kernel modules only
-          KVER=$(ls chroot/lib/modules/ | sort -V | tail -1)
-          sudo bash -c "
-            KVER=\$(ls chroot/lib/modules/ | sort -V | tail -1)
-            cd chroot/lib/modules/\${KVER}/kernel
-            rm -rf drivers/infiniband
-            rm -rf drivers/net/hamradio
-            rm -rf drivers/net/appletalk
-            rm -rf drivers/s390
-            rm -rf drivers/isdn
-            rm -rf sound/isa
-            rm -rf arch/x86/kvm 2>/dev/null || true
-          "
-          sudo chroot chroot depmod -a "${KVER}"
-
-          # 6. Strip debug symbols from ELF binaries (~80 MB saved)
-          sudo chroot chroot bash -c "
-            find /usr/lib /usr/bin /usr/sbin /lib -type f \
-              \( -name '*.so*' -o -perm /0111 \) \
-              ! -name '*.py' ! -name '*.sh' ! -name '*.pl' \
-              -exec strip --strip-unneeded {} + 2>/dev/null || true
-          "
-
-          # 7. Remove Python cache files
-          sudo find chroot -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-          sudo find chroot -name '*.pyc' -delete 2>/dev/null || true
-          sudo find chroot -name '*.pyo' -delete 2>/dev/null || true
-
-          # 8. Wipe apt cache, logs, temp, crash data
-          sudo rm -rf chroot/var/lib/apt/lists/*
-          sudo rm -rf chroot/var/cache/apt/*.bin
-          sudo rm -rf chroot/var/cache/apt/archives/*.deb
-          sudo rm -rf chroot/var/cache/*
-          sudo rm -rf chroot/var/log/*
-          sudo rm -rf chroot/tmp/* chroot/var/tmp/*
-          sudo rm -rf chroot/var/crash/*
-          sudo rm -rf chroot/root/.bash_history
-          sudo rm -rf chroot/home/ridos/.bash_history
-          sudo rm -rf chroot/debootstrap 2>/dev/null || true
-
-          # 9. Keep only default icon themes (~50 MB saved)
-          sudo find chroot/usr/share/icons -mindepth 1 -maxdepth 1 \
-            ! -name 'hicolor' ! -name 'Adwaita' ! -name 'Papirus-Dark' ! -name 'Tango' \
-            -exec rm -rf {} + 2>/dev/null || true
-
-          echo "--- Chroot size AFTER reduction ---"
-          sudo du -sh --exclude=chroot/proc --exclude=chroot/sys --exclude=chroot/dev chroot/ || true
-
-          sudo umount chroot/sys chroot/proc chroot/dev 2>/dev/null || true
-
-      # ── Step 8: Build SquashFS ────────────────────────────────────────────────
       - name: Build squashfs
         run: |
-          # lz4 = fast decompression (critical for live boot, avoids CPU lockup)
-          # xz ultra was causing swapper/0 deadlock on decompression
           sudo mksquashfs chroot filesystem.squashfs \
-            -comp lz4 -Xhc \
-            -b 256K -no-progress -e boot
+            -comp xz -e boot -noappend
           echo "squashfs: $(du -sh filesystem.squashfs)"
 
-      # ── Step 9: Prepare ISO structure ────────────────────────────────────────
       - name: Prepare ISO structure
         run: |
-          mkdir -p iso/live iso/boot/grub iso/isolinux
+          mkdir -p iso/live iso/boot/grub
           cp filesystem.squashfs iso/live/
-
           KERNEL=$(ls chroot/boot/vmlinuz-* 2>/dev/null | sort -V | tail -1)
           INITRD=$(ls chroot/boot/initrd.img-* 2>/dev/null | sort -V | tail -1)
           echo "Kernel: $KERNEL  Initrd: $INITRD"
           cp "$KERNEL" iso/live/vmlinuz
           cp "$INITRD" iso/live/initrd
+          cat > iso/boot/grub/grub.cfg << 'GRUBEOF'
+          set default=0
+          set timeout=5
 
-          # GRUB config - ip=none stops live-boot network wait
-          # components tells live-boot to activate all live components
-          # Boot params explanation:
-          # ip=none               - skip live-boot network init (prevents 10min hang)
-          # nomodeset             - disable GPU KMS (prevents CPU soft lockup)
-          # nouveau/amdgpu/i915   - disable specific GPU drivers that cause lockups
-          # noapic                - disable APIC issues on some hardware
-          # noplymouth nosplash   - no boot animation (removes plymouth hang)
-          # loglevel=3            - reduce kernel log noise
-          # Intel+NVIDIA Optimus params:
-          # nouveau.modeset=0      - disable NVIDIA kernel driver (causes soft lockup)
-          # i915.modeset=1         - force Intel GPU active
-          # nvidia-drm.modeset=0   - disable NVIDIA DRM
-          # pci=nommconf           - fix PCI config issues on Optimus laptops
-          printf 'set default=0\nset timeout=10\n\nmenuentry "RIDOS OS v1.1.0 Baghdad" {\n  linux /live/vmlinuz boot=live components ip=none noplymouth nosplash nouveau.modeset=0 nvidia-drm.modeset=0 i915.modeset=1 pci=nommconf loglevel=3\n  initrd /live/initrd\n}\nmenuentry "RIDOS OS (nomodeset fallback)" {\n  linux /live/vmlinuz boot=live components ip=none nomodeset noplymouth nosplash nouveau.modeset=0 loglevel=3\n  initrd /live/initrd\n}\nmenuentry "RIDOS OS (Safe - ACPI off)" {\n  linux /live/vmlinuz boot=live components ip=none nomodeset noplymouth nosplash acpi=off noapic nouveau.modeset=0 loglevel=3\n  initrd /live/initrd\n}\nmenuentry "RIDOS OS (Debug - verbose)" {\n  linux /live/vmlinuz boot=live components ip=none nouveau.modeset=0\n  initrd /live/initrd\n}\n' \
-            > iso/boot/grub/grub.cfg
-
-          # isolinux files (Legacy BIOS + Rufus detection)
-          cp /usr/lib/ISOLINUX/isolinux.bin               iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/ldlinux.c32   iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/libcom32.c32  iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/libutil.c32   iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/vesamenu.c32  iso/isolinux/
-
-          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none noplymouth nosplash nouveau.modeset=0 nvidia-drm.modeset=0 i915.modeset=1 pci=nommconf loglevel=3\n\nLABEL nomodeset\n  MENU LABEL RIDOS OS (nomodeset fallback)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset noplymouth nosplash nouveau.modeset=0 loglevel=3\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe - ACPI off)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nomodeset noplymouth nosplash acpi=off noapic nouveau.modeset=0 loglevel=3\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components ip=none nouveau.modeset=0\n' \
-            > iso/isolinux/isolinux.cfg
-
+          menuentry "RIDOS OS v1.1.0 Baghdad" {
+            linux /live/vmlinuz boot=live quiet splash
+            initrd /live/initrd
+          }
+          menuentry "RIDOS OS (safe mode)" {
+            linux /live/vmlinuz boot=live nomodeset
+            initrd /live/initrd
+          }
+          menuentry "RIDOS OS (debug)" {
+            linux /live/vmlinuz boot=live
+            initrd /live/initrd
+          }
+          GRUBEOF
           echo "ISO structure ready"
-      # ── Step 10: Build hybrid ISO (Rufus + UEFI + Legacy BIOS) ──────────────
+
       - name: Build GRUB and create ISO
         run: |
-          # BIOS GRUB fallback
           grub-mkimage -O i386-pc -o bios.core.img \
             -p "/boot/grub" iso9660 linux normal biosdisk search
           cat /usr/lib/grub/i386-pc/cdboot.img bios.core.img > bios.img
 
-          # UEFI image
           grub-mkimage -O x86_64-efi -o bootx64.efi \
             -p "/boot/grub" iso9660 linux normal search
           dd if=/dev/zero of=efi.img bs=1M count=4
           mkfs.vfat efi.img
-          mmd  -i efi.img ::/EFI ::/EFI/boot
+          mmd -i efi.img ::/EFI ::/EFI/boot
           mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
 
-          # Hybrid ISO - Rufus + UEFI + Legacy BIOS
-          sudo xorriso -as mkisofs \
+          xorriso -as mkisofs \
             -iso-level 3 \
-            -volid "RIDOS_OS" \
-            -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+            -volid "RIDOS_OS_1.1" \
             --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
             --mbr-force-bootable \
-            -eltorito-boot isolinux/isolinux.bin \
-            -eltorito-catalog isolinux/boot.cat \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            -eltorito-alt-boot \
-            -e boot/grub/bios.img \
-            -no-emul-boot -boot-info-table --grub2-boot-info \
-            -eltorito-alt-boot \
-            -e boot/grub/efi.img \
+            -eltorito-boot boot/grub/bios.img \
+            -eltorito-catalog boot/grub/boot.cat \
             -no-emul-boot \
-            -isohybrid-gpt-basdat \
+            -boot-load-size 4 \
+            -boot-info-table \
+            --grub2-boot-info \
             -o ridos-os-1.1.0-Baghdad-x86_64.iso \
             -graft-points \
             "/boot/grub/bios.img=bios.img" \
-            "/boot/grub/efi.img=efi.img" \
             "/=iso"
 
           ls -lh ridos-os-1.1.0-Baghdad-x86_64.iso
@@ -755,7 +605,6 @@ jobs:
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
           echo "ISO ready!"
 
-      # ── Step 11: Upload artifacts ─────────────────────────────────────────────
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
@@ -765,7 +614,6 @@ jobs:
             ridos-os-1.1.0-Baghdad-x86_64.iso.md5
           retention-days: 30
 
-      # ── Step 12: GitHub Release on tag push ───────────────────────────────────
       - name: Create GitHub Release on tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -776,19 +624,12 @@ jobs:
             --notes "## RIDOS OS v1.1.0 Baghdad
           AI-Powered Linux for IT Professionals
 
-          ### Features:
+          ### Included:
           - XFCE desktop with dark purple theme
           - Firefox ESR browser
-          - AI System Doctor
-          - AI Network Analyzer (advanced)
-          - AI Hardware Fixer (HDD/SSD/NVMe/RAM)
-          - AI Security Scanner
-          - Offline/poor internet fallback
-          - HDD Installer
-          - Fast shutdown (5s)
-          - smartmontools + memtest86+ + wireshark
-          - Desktop shortcuts for all tools
-          - Full PC/laptop hardware driver support
+          - RIDOS AI Shell (Claude AI powered)
+          - HDD Installer included
+          - Full hardware driver support
           - Network tools: nmap, traceroute, net-tools
           - Development: Python3, Git, Vim
 
