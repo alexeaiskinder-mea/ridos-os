@@ -210,9 +210,8 @@ jobs:
           # ── Force X11 fbdev driver - works with nomodeset on any GPU ─────────
           # Without this X tries KMS drivers first and crashes with nomodeset
           sudo mkdir -p chroot/etc/X11/xorg.conf.d
-          printf 'Section \"Device\"\n  Identifier \"Default\"\n  Driver \"fbdev\"\nEndSection\n\nSection \"Screen\"\n  Identifier \"Default Screen\"\n  Device \"Default\"\nEndSection\n' \\
+          printf 'Section "Device"\n  Identifier "Default"\n  Driver "fbdev"\n  Option "fbdev" "/dev/fb0"\nEndSection\n\nSection "Screen"\n  Identifier "Default Screen"\n  Device "Default"\nEndSection\n' \
             | sudo tee chroot/etc/X11/xorg.conf.d/20-fbdev.conf > /dev/null
-
           # ── Stop LightDM crash-restart loop ───────────────────────────────────
           sudo mkdir -p chroot/etc/systemd/system/lightdm.service.d
           printf '[Service]\nRestart=no\nStartLimitBurst=2\nStartLimitIntervalSec=60\n' \\
