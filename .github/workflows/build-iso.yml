@@ -95,6 +95,9 @@ jobs:
           # Browsers
           sudo chroot chroot apt-get install -y firefox-esr
 
+          # VirtualBox guest additions for VM support
+          sudo chroot chroot apt-get install -y             virtualbox-guest-utils             virtualbox-guest-x11             spice-vdagent             2>/dev/null || true
+
           # Dev & IT tools
           sudo chroot chroot apt-get install -y \
             python3 python3-pip python3-venv \
@@ -138,10 +141,15 @@ jobs:
           echo "ridos:ridos" | sudo chroot chroot chpasswd
           echo "root:ridos" | sudo chroot chroot chpasswd
 
-          # LightDM - show login screen (NO autologin)
+          # LightDM - autologin for live session (avoids black screen on VBox)
           sudo mkdir -p chroot/etc/lightdm/lightdm.conf.d
           sudo tee chroot/etc/lightdm/lightdm.conf.d/50-ridos.conf << 'EOF'
+          [LightDM]
+          logind-check-graphical=false
+
           [Seat:*]
+          autologin-user=ridos
+          autologin-user-timeout=0
           user-session=xfce
           greeter-session=lightdm-gtk-greeter
           EOF
@@ -615,26 +623,23 @@ jobs:
           cp /usr/lib/syslinux/modules/bios/libcom32.c32  iso/isolinux/
           cp /usr/lib/syslinux/modules/bios/libutil.c32   iso/isolinux/
           cp /usr/lib/syslinux/modules/bios/vesamenu.c32  iso/isolinux/
-          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components quiet splash nomodeset vga=771 ip=none\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe Mode)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components nomodeset vga=771 ip=none acpi=off\n' \
+          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components quiet splash nomodeset vga=771 ip=none\n\nLABEL vbox\n  MENU LABEL RIDOS OS (VirtualBox / VM)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components nomodeset vga=788 ip=none\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe - ACPI off)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components nomodeset vga=771 ip=none acpi=off noapic\n\nLABEL debug\n  MENU LABEL RIDOS OS (Debug)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components nomodeset ip=none\n' \
             > iso/isolinux/isolinux.cfg
 
-          cat > iso/boot/grub/grub.cfg << 'GRUBEOF'
-          set default=0
-          set timeout=5
-
-          menuentry "RIDOS OS v1.1.0 Baghdad" {
-            linux /live/vmlinuz boot=live quiet splash
-            initrd /live/initrd
-          }
-          menuentry "RIDOS OS (safe mode)" {
-            linux /live/vmlinuz boot=live nomodeset
-            initrd /live/initrd
-          }
-          menuentry "RIDOS OS (debug)" {
-            linux /live/vmlinuz boot=live
-            initrd /live/initrd
-          }
-          GRUBEOF
+          # GRUB config - same params as isolinux for consistency
+          printf 'set default=0\nset timeout=10\n\n' > iso/boot/grub/grub.cfg
+          printf 'menuentry "RIDOS OS v1.1.0 Baghdad" {\n' >> iso/boot/grub/grub.cfg
+          printf '  linux /live/vmlinuz boot=live components quiet splash nomodeset vga=771 ip=none\n' >> iso/boot/grub/grub.cfg
+          printf '  initrd /live/initrd\n}\n\n' >> iso/boot/grub/grub.cfg
+          printf 'menuentry "RIDOS OS (VirtualBox / VM)" {\n' >> iso/boot/grub/grub.cfg
+          printf '  linux /live/vmlinuz boot=live components nomodeset vga=788 ip=none\n' >> iso/boot/grub/grub.cfg
+          printf '  initrd /live/initrd\n}\n\n' >> iso/boot/grub/grub.cfg
+          printf 'menuentry "RIDOS OS (Safe - ACPI off)" {\n' >> iso/boot/grub/grub.cfg
+          printf '  linux /live/vmlinuz boot=live components nomodeset vga=771 ip=none acpi=off noapic\n' >> iso/boot/grub/grub.cfg
+          printf '  initrd /live/initrd\n}\n\n' >> iso/boot/grub/grub.cfg
+          printf 'menuentry "RIDOS OS (Debug - verbose)" {\n' >> iso/boot/grub/grub.cfg
+          printf '  linux /live/vmlinuz boot=live components nomodeset ip=none\n' >> iso/boot/grub/grub.cfg
+          printf '  initrd /live/initrd\n}\n' >> iso/boot/grub/grub.cfg
           echo "ISO structure ready"
 
       - name: Build GRUB and create ISO
