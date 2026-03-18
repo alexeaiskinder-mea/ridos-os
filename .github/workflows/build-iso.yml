@@ -99,18 +99,15 @@ jobs:
             python3 python3-pip python3-venv \
             python3-flask python3-flask-socketio \
             python3-requests python3-psutil \
+            python3-tk \
+            ansible \
             git vim nano curl wget \
             nmap net-tools traceroute \
             openssh-client openssh-server \
             htop neofetch tree \
             zip unzip p7zip-full \
             parted gparted \
-            rsync dosfstools \
-            smartmontools hdparm \
-            memtest86+ \
-            lshw dmidecode \
-            iotop iftop \
-            wireshark-common tshark
+            rsync dosfstools
 
           sudo umount chroot/run chroot/sys chroot/proc chroot/dev
           echo "All packages installed"
@@ -281,64 +278,43 @@ jobs:
           Categories=System;
           EOF
 
-          sudo tee chroot/home/ridos/Desktop/ai-features.desktop << 'EOF'
+          # RIDOS Dashboard shortcut
+          sudo tee chroot/home/ridos/Desktop/ridos-dashboard.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
-          Name=RIDOS AI Tools
-          Comment=AI Network Analyzer, System Doctor, Security Scanner
-          Exec=xfce4-terminal --title="RIDOS AI Tools" -e "python3 /opt/ridos/bin/ai_features.py"
-          Icon=utilities-system-monitor
-          Terminal=false
-          Categories=System;Network;
-          EOF
-
-          sudo tee chroot/home/ridos/Desktop/system-doctor.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=AI System Doctor
-          Comment=AI health check | طبيب النظام الذكي
-          Exec=xfce4-terminal --title="AI System Doctor" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 2; read'"
+          Name=RIDOS Dashboard
+          Comment=Field Engineer OS - AI Tools Dashboard
+          Exec=python3 /opt/ridos/bin/ridos_dashboard.py
           Icon=utilities-system-monitor
           Terminal=false
           Categories=System;
           EOF
 
-          sudo tee chroot/home/ridos/Desktop/hardware-fixer.desktop << 'EOF'
+          # Health Report shortcut
+          sudo tee chroot/home/ridos/Desktop/ridos-health.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
-          Name=AI Hardware Fixer
-          Comment=HDD/SSD/NVMe/RAM diagnostics | فحص وإصلاح العتاد
-          Exec=xfce4-terminal --title="AI Hardware Fixer" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 4; read'"
-          Icon=drive-harddisk
+          Name=Health Report
+          Comment=One-command full server health report
+          Exec=xfce4-terminal --title="RIDOS Health Report" -e "python3 /opt/ridos/bin/health_report.py --full"
+          Icon=utilities-system-monitor
           Terminal=false
           Categories=System;
           EOF
 
-          sudo tee chroot/home/ridos/Desktop/security-scanner.desktop << 'EOF'
+          # Ansible Runner shortcut
+          sudo tee chroot/home/ridos/Desktop/ridos-ansible.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
-          Name=AI Security Scanner
-          Comment=AI cybersecurity scanner | الماسح الأمني الذكي
-          Exec=xfce4-terminal --title="AI Security Scanner" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 5; read'"
-          Icon=security-high
+          Name=Ansible Automation
+          Comment=Run automation playbooks on local or remote hosts
+          Exec=xfce4-terminal --title="RIDOS Ansible" -e "python3 /opt/ridos/bin/ansible_runner.py"
+          Icon=system-run
           Terminal=false
           Categories=System;Network;
-          EOF
-
-          sudo tee chroot/home/ridos/Desktop/network-analyzer.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=AI Network Analyzer
-          Comment=Advanced network analysis | محلل الشبكة المتقدم
-          Exec=xfce4-terminal --title="AI Network Analyzer" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 3; read'"
-          Icon=network-wired
-          Terminal=false
-          Categories=Network;System;
           EOF
 
           sudo chmod +x chroot/home/ridos/Desktop/*.desktop
@@ -379,7 +355,7 @@ jobs:
           sudo mkdir -p chroot/opt/ridos/bin
           sudo mkdir -p chroot/usr/share/ridos
           sudo cp ridos-core/*.py chroot/opt/ridos/bin/
-          sudo cp build-system/scripts/ai_features.py chroot/opt/ridos/bin/ 2>/dev/null || true
+          sudo mkdir -p chroot/opt/ridos/playbooks
           sudo chmod +x chroot/opt/ridos/bin/*.py
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
                chroot/usr/share/ridos/
@@ -497,7 +473,7 @@ jobs:
             ██║  ██║██║██████╔╝╚██████╔╝███████║
             ╚═╝  ╚═╝╚═╝╚═════╝  ╚═════╝ ╚══════╝
 
-            RIDOS OS v1.1.0 "Baghdad"
+            RIDOS OS v1.1.0 "Baghdad" — Field Engineer OS / IT Rescue OS
             AI-Powered Linux for IT Professionals
             Username: ridos  |  Password: ridos
             AI Shell: python3 /opt/ridos/bin/ridos_shell.py
@@ -628,6 +604,9 @@ jobs:
           - XFCE desktop with dark purple theme
           - Firefox ESR browser
           - RIDOS AI Shell (Claude AI powered)
+          - RIDOS Dashboard (GUI launcher for all tools)
+          - One-command Health Report (terminal + HTML)
+          - Ansible Automation Runner (local + remote playbooks)
           - HDD Installer included
           - Full hardware driver support
           - Network tools: nmap, traceroute, net-tools
