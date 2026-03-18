@@ -10,7 +10,6 @@ jobs:
   build-iso:
     runs-on: ubuntu-22.04
     timeout-minutes: 180
-    timeout-minutes: 120
 
     steps:
       - name: Checkout source
