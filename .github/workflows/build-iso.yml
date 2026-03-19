@@ -116,7 +116,8 @@ jobs:
             wireshark-common tshark \
             nvme-cli sdparm \
             lynis rkhunter fail2ban ufw \
-            python3-tk ansible
+            python3-tk ansible \
+            unattended-upgrades
 
           sudo umount chroot/run chroot/sys chroot/proc chroot/dev
           echo "All packages installed"
@@ -366,50 +367,54 @@ jobs:
           Categories=Network;System;
           EOF
 
-          # Remove old shortcuts and create clean professional layout
+          # ── LOCKED DESKTOP LAYOUT (Professional Final) ──────────────────────
+          # ONLY these 5 icons — everything else lives inside Control Center
           sudo rm -f chroot/home/ridos/Desktop/*.desktop
 
-          echo '[Desktop Entry]'                    | sudo tee    chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Type=Application'                  | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Name=RIDOS Dashboard'              | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Exec=python3 /opt/ridos/bin/ridos_dashboard.py' | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Icon=utilities-system-monitor'     | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Terminal=false'                    | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
+          # 1. Control Center (CORE — replaces Dashboard)
+          echo '[Desktop Entry]'                         | sudo tee    chroot/home/ridos/Desktop/01-control-center.desktop > /dev/null
+          echo 'Type=Application'                       | sudo tee -a chroot/home/ridos/Desktop/01-control-center.desktop > /dev/null
+          echo 'Name=RIDOS Control Center'              | sudo tee -a chroot/home/ridos/Desktop/01-control-center.desktop > /dev/null
+          echo 'Comment=AI-powered system control center' | sudo tee -a chroot/home/ridos/Desktop/01-control-center.desktop > /dev/null
+          echo 'Exec=python3 /opt/ridos/bin/control_center.py' | sudo tee -a chroot/home/ridos/Desktop/01-control-center.desktop > /dev/null
+          echo 'Icon=utilities-system-monitor'          | sudo tee -a chroot/home/ridos/Desktop/01-control-center.desktop > /dev/null
+          echo 'Terminal=false'                         | sudo tee -a chroot/home/ridos/Desktop/01-control-center.desktop > /dev/null
 
-          echo '[Desktop Entry]'                    | sudo tee    chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Type=Application'                  | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Name=Health Report'                | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Exec=xfce4-terminal --title=Health-Report -e "python3 /opt/ridos/bin/health_report.py --full"' | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Icon=utilities-system-monitor'     | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Terminal=false'                    | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
+          # 2. AI Terminal
+          echo '[Desktop Entry]'                         | sudo tee    chroot/home/ridos/Desktop/02-ai-terminal.desktop > /dev/null
+          echo 'Type=Application'                       | sudo tee -a chroot/home/ridos/Desktop/02-ai-terminal.desktop > /dev/null
+          echo 'Name=AI Terminal'                       | sudo tee -a chroot/home/ridos/Desktop/02-ai-terminal.desktop > /dev/null
+          echo 'Comment=Interactive AI-powered terminal assistant' | sudo tee -a chroot/home/ridos/Desktop/02-ai-terminal.desktop > /dev/null
+          echo 'Exec=xfce4-terminal --title=AI-Terminal -e "python3 /opt/ridos/bin/ridos_shell.py"' | sudo tee -a chroot/home/ridos/Desktop/02-ai-terminal.desktop > /dev/null
+          echo 'Icon=utilities-terminal'                | sudo tee -a chroot/home/ridos/Desktop/02-ai-terminal.desktop > /dev/null
+          echo 'Terminal=false'                         | sudo tee -a chroot/home/ridos/Desktop/02-ai-terminal.desktop > /dev/null
 
-          echo '[Desktop Entry]'                    | sudo tee    chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Type=Application'                  | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Name=RIDOS AI Shell'               | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Exec=xfce4-terminal --title=RIDOS-AI-Shell -e "python3 /opt/ridos/bin/ridos_shell.py"' | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Icon=utilities-terminal'           | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Terminal=false'                    | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
+          # 3. Software Center
+          echo '[Desktop Entry]'                         | sudo tee    chroot/home/ridos/Desktop/03-software-center.desktop > /dev/null
+          echo 'Type=Application'                       | sudo tee -a chroot/home/ridos/Desktop/03-software-center.desktop > /dev/null
+          echo 'Name=Software Center'                   | sudo tee -a chroot/home/ridos/Desktop/03-software-center.desktop > /dev/null
+          echo 'Comment=Install software and tools'     | sudo tee -a chroot/home/ridos/Desktop/03-software-center.desktop > /dev/null
+          echo 'Exec=python3 /opt/ridos/bin/ridos_software_center.py' | sudo tee -a chroot/home/ridos/Desktop/03-software-center.desktop > /dev/null
+          echo 'Icon=system-software-install'           | sudo tee -a chroot/home/ridos/Desktop/03-software-center.desktop > /dev/null
+          echo 'Terminal=false'                         | sudo tee -a chroot/home/ridos/Desktop/03-software-center.desktop > /dev/null
 
-          echo '[Desktop Entry]'                    | sudo tee    chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Type=Application'                  | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Name=Software Center'              | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Exec=python3 /opt/ridos/bin/ridos_software_center.py' | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Icon=system-software-install'      | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Terminal=false'                    | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
+          # 4. Install RIDOS (live mode only)
+          echo '[Desktop Entry]'                         | sudo tee    chroot/home/ridos/Desktop/04-install-ridos.desktop > /dev/null
+          echo 'Type=Application'                       | sudo tee -a chroot/home/ridos/Desktop/04-install-ridos.desktop > /dev/null
+          echo 'Name=Install RIDOS OS'                  | sudo tee -a chroot/home/ridos/Desktop/04-install-ridos.desktop > /dev/null
+          echo 'Comment=Install RIDOS OS permanently to your hard drive' | sudo tee -a chroot/home/ridos/Desktop/04-install-ridos.desktop > /dev/null
+          echo 'Exec=xfce4-terminal --title=RIDOS-Installer -e "sudo /opt/ridos/bin/ridos-install.sh"' | sudo tee -a chroot/home/ridos/Desktop/04-install-ridos.desktop > /dev/null
+          echo 'Icon=drive-harddisk'                    | sudo tee -a chroot/home/ridos/Desktop/04-install-ridos.desktop > /dev/null
+          echo 'Terminal=false'                         | sudo tee -a chroot/home/ridos/Desktop/04-install-ridos.desktop > /dev/null
 
-          echo '[Desktop Entry]'                    | sudo tee    chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Type=Application'                  | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Name=Install RIDOS OS'             | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Exec=xfce4-terminal --title=RIDOS-Installer -e "sudo /opt/ridos/bin/ridos-install.sh"' | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Icon=drive-harddisk'               | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Terminal=false'                    | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-
-          echo '[Desktop Entry]'                    | sudo tee    chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Type=Application'                  | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Name=File Manager'                 | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Exec=thunar'                       | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Icon=system-file-manager'          | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Terminal=false'                    | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
+          # 5. File System (optional)
+          echo '[Desktop Entry]'                         | sudo tee    chroot/home/ridos/Desktop/05-files.desktop > /dev/null
+          echo 'Type=Application'                       | sudo tee -a chroot/home/ridos/Desktop/05-files.desktop > /dev/null
+          echo 'Name=File System'                       | sudo tee -a chroot/home/ridos/Desktop/05-files.desktop > /dev/null
+          echo 'Comment=Browse files and folders'       | sudo tee -a chroot/home/ridos/Desktop/05-files.desktop > /dev/null
+          echo 'Exec=thunar'                            | sudo tee -a chroot/home/ridos/Desktop/05-files.desktop > /dev/null
+          echo 'Icon=system-file-manager'               | sudo tee -a chroot/home/ridos/Desktop/05-files.desktop > /dev/null
+          echo 'Terminal=false'                         | sudo tee -a chroot/home/ridos/Desktop/05-files.desktop > /dev/null
 
           sudo chmod +x chroot/home/ridos/Desktop/*.desktop
 
@@ -418,7 +423,7 @@ jobs:
           echo '[Desktop Entry]'                    | sudo tee    chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
           echo 'Type=Application'                  | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
           echo 'Name=RIDOS Dashboard'              | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
-          echo 'Exec=python3 /opt/ridos/bin/ridos_dashboard.py' | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
+          echo 'Exec=python3 /opt/ridos/bin/control_center.py' | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
           echo 'Hidden=false'                      | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
 
           sudo tee chroot/home/ridos/.config/xfce4/helpers.rc << 'EOF'
@@ -579,22 +584,16 @@ jobs:
             RIDOS OS v1.1.0 "Baghdad" — Field Engineer OS / IT Rescue OS
             AI-Powered Linux for IT Professionals
             Username: ridos  |  Password: ridos
-            AI Shell: python3 /opt/ridos/bin/ridos_shell.py
-            Install:  sudo /opt/ridos/bin/ridos-install.sh
+            Control Center: python3 /opt/ridos/bin/control_center.py
+            AI Terminal:    python3 /opt/ridos/bin/ridos_shell.py
+            Install:        sudo /opt/ridos/bin/ridos-install.sh
 
           EOF
 
-          # Autostart welcome terminal
+
+          # Control Center autostarts — it has built-in WelcomeScreen on first boot
+          # No separate neofetch terminal (replaced by Control Center WelcomeScreen)
           sudo mkdir -p chroot/home/ridos/.config/autostart
-          sudo tee chroot/home/ridos/.config/autostart/ridos-welcome.desktop << 'EOF'
-          [Desktop Entry]
-          Type=Application
-          Name=RIDOS Welcome
-          Exec=xfce4-terminal --title="RIDOS OS v1.1.0 Baghdad" -e "bash -c 'neofetch; echo; echo \"  Welcome to RIDOS OS v1.1.0 Baghdad\"; echo \"  AI Shell: python3 /opt/ridos/bin/ridos_shell.py\"; echo \"  Install:  sudo /opt/ridos/bin/ridos-install.sh\"; echo; bash'"
-          Hidden=false
-          NoDisplay=false
-          X-GNOME-Autostart-enabled=true
-          EOF
 
           # Neofetch config
           sudo mkdir -p chroot/home/ridos/.config/neofetch
