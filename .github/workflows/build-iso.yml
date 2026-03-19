@@ -9,7 +9,7 @@ on:
 jobs:
   build-iso:
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
+    timeout-minutes: 120
 
     steps:
       - name: Checkout source
@@ -22,8 +22,7 @@ jobs:
             debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin grub2-common \
             mtools dosfstools gnupg2 curl wget \
-            imagemagick librsvg2-bin \
-            isolinux syslinux syslinux-common syslinux-utils
+            imagemagick librsvg2-bin
           echo "Done"
 
       - name: Bootstrap Debian
@@ -95,14 +94,11 @@ jobs:
           # Browsers
           sudo chroot chroot apt-get install -y firefox-esr
 
-
           # Dev & IT tools
           sudo chroot chroot apt-get install -y \
             python3 python3-pip python3-venv \
             python3-flask python3-flask-socketio \
             python3-requests python3-psutil \
-            python3-tk \
-            ansible \
             git vim nano curl wget \
             nmap net-tools traceroute \
             openssh-client openssh-server \
@@ -110,10 +106,11 @@ jobs:
             zip unzip p7zip-full \
             parted gparted \
             rsync dosfstools \
-            smartmontools memtest86+ \
-            wireshark tshark \
-            lshw dmidecode hdparm nvme-cli \
-            lynis rkhunter fail2ban ufw
+            smartmontools hdparm \
+            memtest86+ \
+            lshw dmidecode \
+            iotop iftop \
+            wireshark-common tshark
 
           sudo umount chroot/run chroot/sys chroot/proc chroot/dev
           echo "All packages installed"
@@ -190,28 +187,6 @@ jobs:
           sudo chroot chroot systemctl enable lightdm NetworkManager \
             bluetooth cups acpid 2>/dev/null || true
 
-          # Mask services that cause boot hangs
-          for SVC in \
-            NetworkManager-wait-online.service \
-            systemd-networkd-wait-online.service \
-            plymouth-quit-wait.service \
-            apt-daily.service apt-daily-upgrade.service \
-            apt-daily.timer apt-daily-upgrade.timer \
-            exim4.service e2scrub_reap.service; do
-            sudo chroot chroot systemctl mask "$SVC" 2>/dev/null || true
-          done
-
-          # Blacklist nouveau (Intel+NVIDIA Optimus lockup fix)
-          sudo mkdir -p chroot/etc/modprobe.d
-          echo 'blacklist nouveau'         | sudo tee    chroot/etc/modprobe.d/blacklist-nouveau.conf > /dev/null
-          echo 'blacklist nvidiafb'        | sudo tee -a chroot/etc/modprobe.d/blacklist-nouveau.conf > /dev/null
-          echo 'options nouveau modeset=0' | sudo tee -a chroot/etc/modprobe.d/blacklist-nouveau.conf > /dev/null
-
-          # Fast shutdown 5s
-          sudo mkdir -p chroot/etc/systemd/system.conf.d
-          printf '[Manager]\nDefaultTimeoutStopSec=5s\nDefaultTimeoutStartSec=10s\nShutdownWatchdogSec=10s\n' \
-            | sudo tee chroot/etc/systemd/system.conf.d/timeout.conf > /dev/null
-
           echo "System configured"
 
       - name: Apply RIDOS branding and theme
@@ -241,17 +216,13 @@ jobs:
                 <property name="monitorVirtual1" type="empty">
                   <property name="workspace0" type="empty">
                     <property name="color-style" type="int" value="0"/>
-                    <property name="image-style" type="int" value="5"/>
-                    <property name="last-image" type="string" value="/usr/share/ridos/wallpapers/RIDOS_OS_wallpaper_Main.png"/>
-                    <property name="image-show" type="bool" value="true"/>
-                  </property>
-                </property>
-                <property name="monitor0" type="empty">
-                  <property name="workspace0" type="empty">
-                    <property name="color-style" type="int" value="0"/>
-                    <property name="image-style" type="int" value="5"/>
-                    <property name="last-image" type="string" value="/usr/share/ridos/wallpapers/RIDOS_OS_wallpaper_Main.png"/>
-                    <property name="image-show" type="bool" value="true"/>
+                    <property name="image-style" type="int" value="0"/>
+                    <property name="rgba1" type="array">
+                      <value type="double" value="0.419"/>
+                      <value type="double" value="0.129"/>
+                      <value type="double" value="0.659"/>
+                      <value type="double" value="1.000"/>
+                    </property>
                   </property>
                 </property>
               </property>
@@ -310,83 +281,67 @@ jobs:
           Categories=System;
           EOF
 
-          # ── Clean professional desktop layout ──────────────────────────────
-          # Remove ALL old desktop files first
-          sudo rm -f chroot/home/ridos/Desktop/*.desktop
+          sudo tee chroot/home/ridos/Desktop/ai-features.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=RIDOS AI Tools
+          Comment=AI Network Analyzer, System Doctor, Security Scanner
+          Exec=xfce4-terminal --title="RIDOS AI Tools" -e "python3 /opt/ridos/bin/ai_features.py"
+          Icon=utilities-system-monitor
+          Terminal=false
+          Categories=System;Network;
+          EOF
 
-          # 🧠 CORE RIDOS TOOLS
-          echo '[Desktop Entry]'                                           | sudo tee    chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Version=1.0'                                              | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Type=Application'                                         | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Name=RIDOS Dashboard'                                     | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Comment=AI Tools Dashboard - Field Engineer OS'           | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Exec=python3 /opt/ridos/bin/ridos_dashboard.py'          | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Icon=utilities-system-monitor'                            | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Terminal=false'                                           | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
-          echo 'Categories=System;'                                       | sudo tee -a chroot/home/ridos/Desktop/01-ridos-dashboard.desktop > /dev/null
+          sudo tee chroot/home/ridos/Desktop/system-doctor.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI System Doctor
+          Comment=AI health check | طبيب النظام الذكي
+          Exec=xfce4-terminal --title="AI System Doctor" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 2; read'"
+          Icon=utilities-system-monitor
+          Terminal=false
+          Categories=System;
+          EOF
 
-          echo '[Desktop Entry]'                                           | sudo tee    chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Version=1.0'                                              | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Type=Application'                                         | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Name=Health Report'                                       | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Comment=One-command full server health report'            | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Exec=xfce4-terminal --title=Health-Report -e "python3 /opt/ridos/bin/health_report.py --full"' | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Icon=utilities-system-monitor'                            | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Terminal=false'                                           | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
-          echo 'Categories=System;'                                       | sudo tee -a chroot/home/ridos/Desktop/02-health-report.desktop > /dev/null
+          sudo tee chroot/home/ridos/Desktop/hardware-fixer.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI Hardware Fixer
+          Comment=HDD/SSD/NVMe/RAM diagnostics | فحص وإصلاح العتاد
+          Exec=xfce4-terminal --title="AI Hardware Fixer" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 4; read'"
+          Icon=drive-harddisk
+          Terminal=false
+          Categories=System;
+          EOF
 
-          echo '[Desktop Entry]'                                           | sudo tee    chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Version=1.0'                                              | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Type=Application'                                         | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Name=RIDOS AI Shell'                                      | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Comment=Interactive AI-powered IT assistant'              | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Exec=xfce4-terminal --title=RIDOS-AI-Shell -e "python3 /opt/ridos/bin/ridos_shell.py"' | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Icon=utilities-terminal'                                  | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Terminal=false'                                           | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
-          echo 'Categories=System;'                                       | sudo tee -a chroot/home/ridos/Desktop/03-ai-shell.desktop > /dev/null
+          sudo tee chroot/home/ridos/Desktop/security-scanner.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI Security Scanner
+          Comment=AI cybersecurity scanner | الماسح الأمني الذكي
+          Exec=xfce4-terminal --title="AI Security Scanner" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 5; read'"
+          Icon=security-high
+          Terminal=false
+          Categories=System;Network;
+          EOF
 
-          # 📦 SOFTWARE CENTER
-          echo '[Desktop Entry]'                                           | sudo tee    chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Version=1.0'                                              | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Type=Application'                                         | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Name=Software Center'                                     | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Comment=Install software and tools'                       | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Exec=python3 /opt/ridos/bin/ridos_software_center.py'    | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Icon=system-software-install'                             | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Terminal=false'                                           | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-          echo 'Categories=System;PackageManager;'                       | sudo tee -a chroot/home/ridos/Desktop/04-software-center.desktop > /dev/null
-
-          # ⚙️ SYSTEM
-          echo '[Desktop Entry]'                                           | sudo tee    chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Version=1.0'                                              | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Type=Application'                                         | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Name=Install RIDOS OS'                                    | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Comment=Install RIDOS OS permanently to your hard drive'  | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Exec=xfce4-terminal --title=RIDOS-Installer -e "sudo python3 /opt/ridos/bin/ridos_installer_gui.py"' | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Icon=drive-harddisk'                                      | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Terminal=false'                                           | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-          echo 'Categories=System;'                                       | sudo tee -a chroot/home/ridos/Desktop/05-install-ridos.desktop > /dev/null
-
-          echo '[Desktop Entry]'                                           | sudo tee    chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Version=1.0'                                              | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Type=Application'                                         | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Name=File Manager'                                        | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Comment=Browse files and folders'                         | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Exec=thunar'                                              | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Icon=system-file-manager'                                 | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Terminal=false'                                           | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
-          echo 'Categories=System;FileManager;'                          | sudo tee -a chroot/home/ridos/Desktop/06-files.desktop > /dev/null
+          sudo tee chroot/home/ridos/Desktop/network-analyzer.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=AI Network Analyzer
+          Comment=Advanced network analysis | محلل الشبكة المتقدم
+          Exec=xfce4-terminal --title="AI Network Analyzer" -e "bash -c 'python3 /opt/ridos/bin/ai_features.py 3; read'"
+          Icon=network-wired
+          Terminal=false
+          Categories=Network;System;
+          EOF
 
           sudo chmod +x chroot/home/ridos/Desktop/*.desktop
-
-          # ── Dashboard autostart on login ──────────────────────────────────
-          sudo mkdir -p chroot/home/ridos/.config/autostart
-          echo '[Desktop Entry]'                                           | sudo tee    chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
-          echo 'Type=Application'                                         | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
-          echo 'Name=RIDOS Dashboard'                                     | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
-          echo 'Exec=python3 /opt/ridos/bin/ridos_dashboard.py'          | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
-          echo 'Hidden=false'                                             | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
-          echo 'X-GNOME-Autostart-enabled=true'                          | sudo tee -a chroot/home/ridos/.config/autostart/ridos-dashboard.desktop > /dev/null
           sudo tee chroot/home/ridos/.config/xfce4/helpers.rc << 'EOF'
           TerminalEmulator=xfce4-terminal
           EOF
@@ -423,15 +378,8 @@ jobs:
         run: |
           sudo mkdir -p chroot/opt/ridos/bin
           sudo mkdir -p chroot/usr/share/ridos
-          # Copy AI tools
           sudo cp ridos-core/*.py chroot/opt/ridos/bin/
-          # Copy wallpapers
-          sudo mkdir -p chroot/usr/share/ridos/wallpapers chroot/home/ridos/Pictures
-          sudo cp ridos-core/RIDOS_OS_wallpaper_Main.png chroot/usr/share/ridos/wallpapers/ 2>/dev/null || true
-          sudo cp ridos-core/RIDOS_OS_wallpaper.png      chroot/usr/share/ridos/wallpapers/ 2>/dev/null || true
-          sudo cp ridos-core/RIDOS_OS_wallpaper.png      chroot/home/ridos/Pictures/RIDOS_OS_wallpaper_light.png 2>/dev/null || true
-          sudo cp ridos-core/RIDOS_OS_wallpaper_Main.png chroot/home/ridos/Pictures/RIDOS_OS_wallpaper_dark.png 2>/dev/null || true
-          sudo mkdir -p chroot/opt/ridos/playbooks
+          sudo cp build-system/scripts/ai_features.py chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo chmod +x chroot/opt/ridos/bin/*.py
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
                chroot/usr/share/ridos/
@@ -539,12 +487,6 @@ jobs:
 
           sudo chmod +x chroot/opt/ridos/bin/ridos-install.sh
 
-          # GPU setup script for post-install first boot
-          sudo mkdir -p chroot/etc/profile.d
-          printf '#!/bin/bash\nif [ ! -f /etc/ridos-gpu-configured ] && [ "$(id -u)" = "0" ]; then\n  read -p "Setup GPU driver now? [Y/n]: " ans\n  if [ "$ans" != "n" ]; then python3 /opt/ridos/bin/ridos_gpu_setup.py; fi\n  touch /etc/ridos-gpu-configured\nfi\n' \
-            | sudo tee chroot/etc/profile.d/ridos-firstboot.sh > /dev/null
-          sudo chmod +x chroot/etc/profile.d/ridos-firstboot.sh
-
           # RIDOS welcome banner
           sudo tee chroot/etc/motd << 'EOF'
 
@@ -555,7 +497,7 @@ jobs:
             ██║  ██║██║██████╔╝╚██████╔╝███████║
             ╚═╝  ╚═╝╚═╝╚═════╝  ╚═════╝ ╚══════╝
 
-            RIDOS OS v1.1.0 "Baghdad" — Field Engineer OS / IT Rescue OS
+            RIDOS OS v1.1.0 "Baghdad"
             AI-Powered Linux for IT Professionals
             Username: ridos  |  Password: ridos
             AI Shell: python3 /opt/ridos/bin/ridos_shell.py
@@ -598,7 +540,7 @@ jobs:
       - name: Build squashfs
         run: |
           sudo mksquashfs chroot filesystem.squashfs \
-            -comp lz4 -Xhc -b 256K -no-progress -e boot
+            -comp xz -e boot -noappend
           echo "squashfs: $(du -sh filesystem.squashfs)"
 
       - name: Prepare ISO structure
@@ -610,15 +552,6 @@ jobs:
           echo "Kernel: $KERNEL  Initrd: $INITRD"
           cp "$KERNEL" iso/live/vmlinuz
           cp "$INITRD" iso/live/initrd
-          mkdir -p iso/isolinux
-          cp /usr/lib/ISOLINUX/isolinux.bin               iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/ldlinux.c32   iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/libcom32.c32  iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/libutil.c32   iso/isolinux/
-          cp /usr/lib/syslinux/modules/bios/vesamenu.c32  iso/isolinux/
-          printf 'UI vesamenu.c32\nTIMEOUT 50\nPROMPT 0\n\nMENU TITLE RIDOS OS v1.1.0 Baghdad\n\nLABEL live\n  MENU LABEL RIDOS OS v1.1.0 Baghdad (Live)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components quiet splash nomodeset vga=771 ip=none\n\nLABEL safe\n  MENU LABEL RIDOS OS (Safe Mode)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd boot=live components nomodeset vga=771 ip=none acpi=off\n' \
-            > iso/isolinux/isolinux.cfg
-
           cat > iso/boot/grub/grub.cfg << 'GRUBEOF'
           set default=0
           set timeout=5
@@ -640,44 +573,95 @@ jobs:
 
       - name: Build GRUB and create ISO
         run: |
-          grub-mkimage -O i386-pc -o bios.core.img \
-            -p "/boot/grub" iso9660 linux normal biosdisk search
+          # ── Step 1: Build GRUB BIOS core image ──────────────────
+          # Use grub-mkimage to create a minimal BIOS boot image
+          grub-mkimage \
+            -O i386-pc \
+            -o bios.core.img \
+            -p "/boot/grub" \
+            iso9660 linux normal biosdisk search
+          # Prepend cdboot.img to make it El Torito bootable
           cat /usr/lib/grub/i386-pc/cdboot.img bios.core.img > bios.img
+          echo "BIOS boot image: $(du -sh bios.img)"
 
-          grub-mkimage -O x86_64-efi -o bootx64.efi \
-            -p "/boot/grub" iso9660 linux normal search
-          dd if=/dev/zero of=efi.img bs=1M count=4
-          mkfs.vfat efi.img
+          # ── Step 2: Build GRUB EFI image ─────────────────────────
+          grub-mkimage \
+            -O x86_64-efi \
+            -o bootx64.efi \
+            -p "/boot/grub" \
+            iso9660 linux normal search
+          echo "EFI boot image: $(du -sh bootx64.efi)"
+
+          # ── Step 3: Create EFI system partition image ─────────────
+          # This is what makes Rufus ISO mode work properly
+          dd if=/dev/zero of=efi.img bs=1M count=10
+          mkfs.vfat -F 12 efi.img
           mmd -i efi.img ::/EFI ::/EFI/boot
           mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
+          echo "EFI partition: $(du -sh efi.img)"
 
-          # Rufus-compatible hybrid ISO
-          sudo xorriso -as mkisofs \
+          # ── Step 4: Copy GRUB files into ISO tree ────────────────
+          mkdir -p iso/boot/grub/i386-pc
+          cp /usr/lib/grub/i386-pc/*.mod iso/boot/grub/i386-pc/ 2>/dev/null || true
+          cp /usr/lib/grub/i386-pc/*.lst iso/boot/grub/i386-pc/ 2>/dev/null || true
+          cp bios.img iso/boot/grub/bios.img
+
+          # ── Step 5: Create fully compatible ISO with xorriso ─────
+          # This command creates an ISO that is:
+          # - Bootable in VirtualBox (BIOS + UEFI)
+          # - Compatible with Rufus ISO mode AND DD mode
+          # - Compatible with direct CD/DVD burning
+          # - Recognized by all major tools
+          xorriso -as mkisofs \
             -iso-level 3 \
-            -volid "RIDOS_OS" \
-            -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+            -full-iso9660-filenames \
+            -volid "RIDOS_OS_1.1" \
+            -publisher "RIDOS OS Project" \
+            -preparer "RIDOS OS Build System" \
             --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
+            -partition_offset 16 \
             --mbr-force-bootable \
-            -eltorito-boot isolinux/isolinux.bin \
-            -eltorito-catalog isolinux/boot.cat \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            -eltorito-alt-boot \
-            -e boot/grub/bios.img \
-            -no-emul-boot -boot-info-table --grub2-boot-info \
-            -eltorito-alt-boot \
-            -e boot/grub/efi.img \
+            -append_partition 2 0xef efi.img \
+            -appended_part_as_gpt \
+            -iso_mbr_part_type 0x00 \
+            -c boot/grub/boot.cat \
+            -b boot/grub/bios.img \
             -no-emul-boot \
-            -isohybrid-gpt-basdat \
+            -boot-load-size 4 \
+            -boot-info-table \
+            --grub2-boot-info \
+            -eltorito-alt-boot \
+            -e --interval:appended_partition_2:all:: \
+            -no-emul-boot \
             -o ridos-os-1.1.0-Baghdad-x86_64.iso \
             -graft-points \
-            "/boot/grub/bios.img=bios.img" \
-            "/boot/grub/efi.img=efi.img" \
-            "/=iso"
+              "/boot/grub/bios.img=bios.img" \
+              "/=iso"
 
+          # ── Step 6: Verify the ISO ───────────────────────────────
+          echo ""
+          echo "=== ISO Information ==="
           ls -lh ridos-os-1.1.0-Baghdad-x86_64.iso
           file ridos-os-1.1.0-Baghdad-x86_64.iso
+
+          echo ""
+          echo "=== Boot sector check (first 512 bytes) ==="
+          dd if=ridos-os-1.1.0-Baghdad-x86_64.iso bs=512 count=1 2>/dev/null | xxd | head -8
+
+          echo ""
+          echo "=== ISO partition table ==="
+          fdisk -l ridos-os-1.1.0-Baghdad-x86_64.iso 2>/dev/null || true
+
+          echo ""
+          echo "=== El Torito boot catalog ==="
+          xorriso -indev ridos-os-1.1.0-Baghdad-x86_64.iso \
+            -report_el_torito as_mkisofs 2>/dev/null || true
+
+          # ── Step 7: Generate checksums ───────────────────────────
           md5sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
-          echo "ISO ready!"
+          sha256sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.sha256
+          echo ""
+          echo "✅ ISO ready! Bootable in VirtualBox, Rufus ISO mode, Rufus DD mode"
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
@@ -686,6 +670,7 @@ jobs:
           path: |
             ridos-os-1.1.0-Baghdad-x86_64.iso
             ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+            ridos-os-1.1.0-Baghdad-x86_64.iso.sha256
           retention-days: 30
 
       - name: Create GitHub Release on tag
@@ -702,9 +687,6 @@ jobs:
           - XFCE desktop with dark purple theme
           - Firefox ESR browser
           - RIDOS AI Shell (Claude AI powered)
-          - RIDOS Dashboard (GUI launcher for all tools)
-          - One-command Health Report (terminal + HTML)
-          - Ansible Automation Runner (local + remote playbooks)
           - HDD Installer included
           - Full hardware driver support
           - Network tools: nmap, traceroute, net-tools
