@@ -111,9 +111,6 @@ jobs:
             lshw dmidecode \
             iotop iftop \
             wireshark-common tshark \
-            calamares calamares-settings-debian \
-            qml-module-qtquick2 \
-            python3-pyqt5 \
             squashfs-tools
 
           sudo umount chroot/run chroot/sys chroot/proc chroot/dev
@@ -192,6 +189,30 @@ jobs:
             bluetooth cups acpid 2>/dev/null || true
 
           echo "System configured"
+
+      - name: Install Calamares graphical installer
+        run: |
+          sudo mount --bind /dev chroot/dev
+          sudo mount --bind /proc chroot/proc
+          sudo mount --bind /sys chroot/sys
+          sudo mount --bind /run chroot/run
+
+          # Add Calamares repo for Debian bookworm
+          sudo chroot chroot bash -c "
+            apt-get update -qq
+            # Try installing Calamares with all Qt dependencies
+            DEBIAN_FRONTEND=noninteractive apt-get install -y               calamares               calamares-settings-debian               qml-module-qtquick2               qml-module-qtquick-controls2               qml-module-qtquick-layouts               python3-pyqt5               python3-pyqt5.qtwebengine               libkpmcore12               libqt5core5a               libqt5widgets5               libqt5dbus5               libqt5network5               libqt5xml5               libqt5svg5               qt5-gtk-platformtheme               || echo 'WARNING: Calamares install had issues - trying minimal install'
+            # Fallback: minimal calamares
+            DEBIAN_FRONTEND=noninteractive apt-get install -y calamares ||               echo 'WARNING: Calamares not available - using custom installer'
+          "
+
+          sudo umount chroot/run chroot/sys chroot/proc chroot/dev
+          # Verify installation
+          if [ -f chroot/usr/bin/calamares ]; then
+            echo "✅ Calamares installed successfully"
+          else
+            echo "⚠️  Calamares not installed - custom installer will be used"
+          fi
 
       - name: Configure Calamares installer
         run: |
@@ -474,8 +495,8 @@ jobs:
           Type=Application
           Name=Install RIDOS OS
           Comment=Install RIDOS OS permanently to your hard drive
-          Exec=sudo -E calamares
-          Icon=calamares
+          Exec=bash -c "if [ -f /usr/bin/calamares ]; then pkexec /usr/bin/calamares; else xfce4-terminal -e 'sudo /opt/ridos/bin/ridos-install.sh'; fi"
+          Icon=drive-harddisk
           Terminal=false
           Categories=System;
           EOF
