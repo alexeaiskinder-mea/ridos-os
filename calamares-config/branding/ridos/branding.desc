@@ -1,0 +1,27 @@
+---
+componentName: ridos
+welcomeStyleCalamares: true
+
+strings:
+  productName: RIDOS OS
+  shortProductName: RIDOS
+  version: "1.1.0"
+  shortVersion: "1.1"
+  versionedName: "RIDOS OS 1.1.0"
+  shortVersionedName: "RIDOS 1.1"
+  bootloaderEntryName: RIDOS
+  productUrl: "https://github.com/alexeaiskinder-mea/ridos-os"
+  supportUrl: "https://github.com/alexeaiskinder-mea/ridos-os/issues"
+  releaseNotesUrl: "https://github.com/alexeaiskinder-mea/ridos-os"
+
+images:
+  productLogo: "logo.png"
+  productIcon: "logo.png"
+  productWelcome: "languages.png"
+
+slideshow: "show.qml"
+
+style:
+  sidebarBackground: "#1E1B4B"
+  sidebarText: "#FFFFFF"
+  sidebarTextSelect: "#6B21A8"

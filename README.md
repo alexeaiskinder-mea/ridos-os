@@ -1,200 +1,172 @@
-# ⚡ RIDOS OS v1.1.0 "Baghdad"
-### AI-Powered Linux for IT Professionals
+# RIDOS OS
+### Retro Intelligent Desktop Operating System — v1.1.0 "Baghdad"
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Base-Debian%20Bookworm-purple?style=for-the-badge&logo=debian"/>
-  <img src="https://img.shields.io/badge/Desktop-XFCE-blueviolet?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/AI-Offline--First-green?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Boot-Rufus%20Compatible-blue?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/License-GPL%20v3-orange?style=for-the-badge"/>
-</p>
+[![Build ISO](https://github.com/ridos-os/ridos-os/actions/workflows/build-iso.yml/badge.svg)](https://github.com/ridos-os/ridos-os/actions)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Platform: x86_64](https://img.shields.io/badge/Platform-x86__64-lightgrey)]()
+
+> **A professional Linux distribution for IT specialists, network engineers, and developers — with a built-in Claude AI assistant.**
 
 ---
 
-## 🌟 What is RIDOS OS?
+## What is RIDOS OS?
 
-RIDOS OS is a Debian-based live Linux distribution built for **IT professionals, field engineers, and system administrators**. It fills the gap between Kali (offensive security) and Ubuntu (general use) — RIDOS is built for **diagnosing, repairing, and securing systems in the field**.
+RIDOS OS is a bootable Linux ISO based on Debian. Insert a USB stick and boot directly — no installation needed. It includes professional IT tools and a conversational AI assistant (powered by Anthropic Claude) that understands Linux, networking, and code.
 
-The defining feature is **built-in AI tools that work fully offline** — no internet required.
+**Key difference from Kali Linux:** RIDOS integrates AI into every IT task. Ask "scan my local network" → RIDOS runs `nmap` and explains the results in plain language.
 
 ---
 
-## 🚀 Features
+## Features
 
-| Feature | Description |
+| Category | Tools |
 |---|---|
-| 🤖 **AI System Doctor** | Diagnoses system problems and suggests exact fixes |
-| 🌐 **AI Network Analyzer** | Advanced network scanning, port analysis, connectivity diagnosis |
-| 💾 **AI Hardware Fixer** | HDD/SSD/NVMe health via SMART, RAM diagnostics |
-| 🔒 **AI Security Scanner** | Rootkit detection, firewall audit, vulnerability assessment |
-| 📴 **Offline-First AI** | All tools work without internet using local rule engine |
-| 💿 **GUI HDD Installer** | Clean wizard to install RIDOS permanently to disk |
-| ⚡ **Fast Shutdown** | 5-second shutdown via systemd tuning |
-| 🛠️ **Diagnostic Tools** | smartmontools, memtest86+, wireshark, nmap, lynis, rkhunter |
-| 🖥️ **XFCE Desktop** | Dark purple theme, all tools as desktop shortcuts |
-| 🌍 **Baghdad/Iraq Locale** | Arabic + English, Asia/Baghdad timezone |
-| 🔌 **Rufus Compatible** | ISO hybrid works with Rufus in DD and ISO mode |
+| **Network Analysis** | Nmap, Wireshark, tcpdump, Netcat, iperf3, arp-scan |
+| **Remote Access** | OpenSSH, Remmina (RDP/VNC), tmux, screen |
+| **Security** | UFW, iptables, ClamAV, Lynis, fail2ban |
+| **Development** | Python 3, GCC/G++, Git, Neovim |
+| **AI Assistant** | Claude API (online) with IT tool integration |
+| **Desktop** | XFCE (lightweight, works on 512MB RAM) |
 
 ---
 
-## 📥 Download & Boot
+## System Requirements
+
+| | Minimum | Recommended |
+|---|---|---|
+| **CPU** | x86_64 (1 GHz) | x86_64 (2+ GHz) |
+| **RAM** | 512 MB | 2 GB |
+| **Storage** | USB 2GB+ | USB 8GB+ |
+| **Network** | Optional | Required for AI |
+
+---
+
+## Quick Start
+
+### 1. Download ISO
+Download from [GitHub Releases](https://github.com/ridos-os/ridos-os/releases) or build from source.
+
+### 2. Flash to USB
+```bash
+# Linux
+sudo dd if=ridos-os-1.1.0-x86_64.iso of=/dev/sdX bs=4M status=progress
+
+# Windows / Mac — use Balena Etcher (free)
+```
+
+### 3. Boot
+Insert USB → restart → press F12/F2/Del → select USB → RIDOS OS boots.
+
+### 4. First Run — Setup Wizard
+RIDOS will ask for your **Anthropic API key** (free at [console.anthropic.com](https://console.anthropic.com)).
+
+---
+
+## Building from Source
 
 ### Requirements
-- USB drive: **4 GB minimum**
-- RAM: **2 GB minimum** (4 GB recommended)
-- Architecture: **x86_64**
+- Ubuntu 22.04 or Debian 12 machine (or VM)
+- 10 GB free disk space
+- Root access
 
-### Flash with Rufus (Windows)
-1. Download the latest ISO from [Releases](../../releases)
-2. Open Rufus → Select the ISO
-3. Partition scheme: **MBR** (for most systems)
-4. Click **Start** → Select **Write in ISO Image mode**
-5. Boot from USB → Select **RIDOS OS** from the menu
-
-### Flash with `dd` (Linux/Mac)
+### Method 1 — Local Build
 ```bash
-sudo dd if=ridos-os-1.1.0-Baghdad-x86_64.iso of=/dev/sdX bs=4M status=progress
-sudo sync
-```
-
----
-
-## 🔐 Login
-
-| | |
-|---|---|
-| **Username** | `ridos` |
-| **Password** | `ridos` |
-| **Root password** | `ridos` |
-
----
-
-## 🤖 AI Tools
-
-All AI tools are in `/opt/ridos/bin/` and have desktop shortcuts.
-
-### Online Mode (Anthropic API)
-Set your API key for full AI responses:
-```bash
-export ANTHROPIC_API_KEY="your-key-here"
-python3 /opt/ridos/bin/ridos_shell.py
-```
-
-### Offline Mode (No internet needed)
-All tools automatically fall back to a local rule-based AI engine when offline:
-```bash
-python3 /opt/ridos/bin/ridos_shell.py        # AI Shell
-python3 /opt/ridos/bin/system_doctor.py      # System Doctor
-python3 /opt/ridos/bin/network_analyzer.py   # Network Analyzer
-python3 /opt/ridos/bin/hardware_fixer.py     # Hardware Fixer
-python3 /opt/ridos/bin/security_scanner.py   # Security Scanner
-```
-
----
-
-## 💿 Install to HDD
-
-Launch the **"Install RIDOS OS to HDD"** shortcut on the desktop, or run:
-```bash
-sudo python3 /opt/ridos/bin/ridos_installer_gui.py
-```
-
-The GUI installer will guide you through disk selection, formatting, and GRUB setup.
-
----
-
-## 🛠️ Built-in Tools
-
-### Diagnostics
-- `smartmontools` — HDD/SSD/NVMe SMART health
-- `memtest86+` — RAM testing (from boot menu)
-- `lshw`, `dmidecode` — hardware inventory
-- `nvme-cli`, `hdparm` — advanced disk tools
-
-### Network
-- `nmap`, `wireshark`, `tshark` — network scanning and capture
-- `net-tools`, `traceroute`, `iftop`, `nethogs` — traffic analysis
-- `openssh-client/server` — SSH
-
-### Security
-- `lynis` — system security audit
-- `rkhunter`, `chkrootkit` — rootkit detection
-- `fail2ban`, `ufw` — intrusion prevention
-- `wireshark` — packet analysis
-
----
-
-## 🏗️ Build from Source
-
-RIDOS OS is built entirely by GitHub Actions — no manual build needed.
-
-```bash
-# Fork the repo, then push to main to trigger a build
-git clone https://github.com/alexeaiskinder-mea/ridos-os
+git clone https://github.com/ridos-os/ridos-os.git
 cd ridos-os
-# Make your changes
-git push origin main
-# Check Actions tab for build progress (~60-90 min)
+
+# Install live-build
+sudo apt install live-build debootstrap squashfs-tools xorriso
+
+# Configure + Build
+cd build-system
+sudo bash scripts/lb_config.sh
+sudo lb build
+
+# Output: live-image-amd64.hybrid.iso
 ```
 
-### Tag a release
-```bash
-git tag v1.1.0
-git push origin v1.1.0
-# GitHub Actions will build the ISO and create a Release automatically
-```
+### Method 2 — GitHub Actions (No Linux required)
+1. Fork this repo on GitHub
+2. Go to **Actions** tab → **Build RIDOS OS ISO** → **Run workflow**
+3. Download the ISO from Artifacts when complete
 
 ---
 
-## 🗂️ Repository Structure
+## Project Structure
 
 ```
 ridos-os/
 ├── .github/workflows/
-│   └── build-iso.yml        # Full CI/CD build pipeline
+│   └── build-iso.yml          # CI/CD — auto-builds ISO on push
+├── build-system/
+│   ├── scripts/
+│   │   └── lb_config.sh       # live-build configuration
+│   └── config/
+│       ├── package-lists/
+│       │   └── ridos.list.chroot   # all packages to install
+│       ├── hooks/
+│       │   └── 0100-ridos-setup.hook.chroot  # post-install config
+│       └── includes.binary/
+│           └── boot/grub/     # custom GRUB theme
 ├── ridos-core/
-│   ├── ai_engine.py         # Shared offline-first AI engine
-│   ├── ridos_shell.py       # Interactive AI shell
-│   ├── system_doctor.py     # AI system diagnostics
-│   ├── network_analyzer.py  # AI network analysis
-│   ├── hardware_fixer.py    # AI hardware diagnostics
-│   ├── security_scanner.py  # AI security audit
-│   └── ridos_installer_gui.py  # GUI HDD installer
+│   ├── ai_daemon.py           # Claude API backend (Unix socket)
+│   ├── ridos_shell.py         # terminal chat interface
+│   ├── intent_parser.py       # IT tools automation
+│   ├── web_search.py          # DuckDuckGo integration
+│   └── setup_wizard.py        # first-boot setup
 ├── legal/
-│   ├── LICENSE.txt          # GPL v3
-│   ├── COPYRIGHT            # Copyright notice
-│   └── CONTRIBUTORS.md      # Contributors
+│   ├── LICENSE.txt            # GPL v3
+│   ├── COPYRIGHT              # project copyright
+│   └── CONTRIBUTORS.md        # contributors list
 └── README.md
 ```
 
 ---
 
-## 🆚 RIDOS vs Kali vs Ubuntu
+## RIDOS Shell Commands
 
-| | RIDOS OS | Kali Linux | Ubuntu |
-|---|---|---|---|
-| **Purpose** | IT repair & diagnosis | Penetration testing | General use |
-| **AI tools** | ✅ Built-in offline | ❌ None | ❌ None |
-| **Hardware diagnostics** | ✅ Full | ⚠️ Basic | ⚠️ Basic |
-| **Security tools** | ✅ Defense-focused | ✅ Offense-focused | ❌ Minimal |
-| **Rufus compatible** | ✅ | ✅ | ✅ |
-| **Offline usable** | ✅ Fully | ✅ | ⚠️ Partial |
-| **Arabic locale** | ✅ Built-in | ❌ | ⚠️ Manual |
-| **ISO size** | ~500 MB | ~4 GB | ~5 GB |
-| **CI/CD build** | ✅ GitHub Actions | ❌ | ❌ |
-
----
-
-## 🤝 Contributing
-
-Pull requests welcome. Open an issue first for major changes.
+| Command | Description |
+|---|---|
+| `/help` | Show all commands |
+| `/status` | CPU, RAM, disk, network |
+| `/tools` | List available IT tools |
+| `/network` | Network diagnostics |
+| `/version` | Version information |
+| `/clear` | Clear screen |
+| `/reset` | Clear AI conversation |
+| `$ command` | Run any shell command |
+| `search: ...` | Web search |
 
 ---
 
-## 📄 License
+## Contributing
 
-GPL v3 — see [legal/LICENSE.txt](legal/LICENSE.txt)
+Contributions are welcome! See [CONTRIBUTORS.md](legal/CONTRIBUTORS.md).
+
+1. Fork the repository
+2. Create a branch: `git checkout -b feature/your-feature`
+3. Commit: `git commit -m "Add: description"`
+4. Push and open a Pull Request
 
 ---
 
-<p align="center">Built in Baghdad 🇮🇶 | Powered by Debian | GPL v3</p>
+## Copyright & License
+
+```
+RIDOS OS — Retro Intelligent Desktop Operating System
+Copyright (C) 2026  RIDOS OS Project
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License.
+```
+
+See [legal/LICENSE.txt](legal/LICENSE.txt) for the full text.
+
+**Third-party components** (Linux kernel, Debian, Python, GRUB, etc.) are governed by their own respective licenses. See [legal/LICENSE.txt](legal/LICENSE.txt) for details.
+
+**Anthropic Claude API** — Each user provides their own API key. RIDOS OS does not include any API keys and is not affiliated with Anthropic.
+
+---
+
+*RIDOS OS — Built on open source. Powered by AI. Made for IT professionals.*
