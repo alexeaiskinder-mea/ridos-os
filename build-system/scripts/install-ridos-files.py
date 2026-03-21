@@ -178,6 +178,13 @@ read -p "Press Enter to exit..."
 run('chmod +x chroot/opt/ridos/bin/ridos-install.sh')
 run('chroot chroot chown -R ridos:ridos /home/ridos 2>/dev/null || true')
 
+# Install GRUB helper to live system
+import shutil, stat
+shutil.copy2('build-system/scripts/ridos-grub-install.sh',
+             'chroot/usr/local/bin/ridos-grub-install')
+os.chmod('chroot/usr/local/bin/ridos-grub-install', 0o755)
+print("✅ ridos-grub-install installed to live system")
+
 # Install unattended-upgrades (Pro Team Recommendation)
 run('chroot chroot apt-get install -y unattended-upgrades 2>/dev/null || true')
 

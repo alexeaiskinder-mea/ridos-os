@@ -37,8 +37,8 @@ sequence:
       - displaymanager
       - packages
       - grubcfg
-      - shellprocess
       - bootloader
+      - shellprocess
       - finished
 
 branding: ridos
@@ -214,7 +214,7 @@ grubCfg: "/boot/grub/grub.cfg"
 grubProbe: "grub-probe"
 efiInstallerPath: "/usr/bin/efibootmgr"
 installEFIFallback: false
-canBeSkipped: true
+canBeSkipped: false
 ''')
 
 write('chroot/etc/default/grub',
@@ -368,7 +368,7 @@ timeout: 300
 verbose: true
 
 script:
-  - command: "bash -c 'T=$(ls -d /tmp/calamares-root-* 2>/dev/null | head -1); echo TARGET=$T; mount --bind /dev $T/dev; mount --bind /proc $T/proc; mount --bind /sys $T/sys; chroot $T grub-install --target=i386-pc --recheck --force /dev/sda; R=$?; chroot $T update-grub; umount $T/sys $T/proc $T/dev; exit $R'"
+  - command: "/usr/local/bin/ridos-grub-install"
     timeout: 300
 ''')
 
