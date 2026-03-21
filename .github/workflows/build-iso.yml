@@ -22,7 +22,7 @@ jobs:
             debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin grub2-common \
             mtools dosfstools gnupg2 curl wget \
-            imagemagick librsvg2-bin
+            imagemagick librsvg2-bin inkscape
           echo "Done"
 
       - name: Bootstrap Debian bookworm

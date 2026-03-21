@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" width="1024" height="768">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#0F0A1E"/>
+      <stop offset="100%" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#6B21A8"/>
+      <stop offset="40%"  stop-color="#C026D3"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+    <linearGradient id="tg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="768" fill="url(#bg)"/>
+  <g stroke="#A78BFA" stroke-width="0.5" opacity="0.05">
+    <line x1="0" y1="192" x2="1024" y2="192"/>
+    <line x1="0" y1="384" x2="1024" y2="384"/>
+    <line x1="0" y1="576" x2="1024" y2="576"/>
+    <line x1="256" y1="0" x2="256" y2="768"/>
+    <line x1="512" y1="0" x2="512" y2="768"/>
+    <line x1="768" y1="0" x2="768" y2="768"/>
+  </g>
+  <!-- Small icon top center -->
+  <g transform="translate(462, 180) scale(0.8)">
+    <circle cx="100" cy="100" r="90" fill="#0F0A1E" opacity="0.9"/>
+    <circle cx="100" cy="100" r="90" fill="none" stroke="url(#g)" stroke-width="2"/>
+    <line x1="100" y1="20" x2="100" y2="180" stroke="url(#g)" stroke-width="1" opacity="0.2"/>
+    <path d="M100,40 L70,40 L60,50" fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M100,100 L40,100" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M100,160 L70,160 L60,150" fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="40" cy="100" r="8" fill="#EA580C"/>
+    <path d="M100,28 C116,23 138,26 148,40 C160,55 158,72 151,84 C162,93 163,110 154,122 C162,134 156,154 143,161 C130,168 112,165 105,160"
+          fill="none" stroke="url(#g)" stroke-width="3"/>
+    <circle cx="100" cy="100" r="10" fill="url(#g)"/>
+    <circle cx="100" cy="100" r="4"  fill="white" opacity="0.9"/>
+  </g>
+  <!-- RIDOS -->
+  <text x="512" y="450" text-anchor="middle"
+        font-family="Arial Black, Arial, sans-serif"
+        font-weight="900" font-size="110"
+        fill="url(#tg)" letter-spacing="-2">RIDOS</text>
+  <text x="512" y="485" text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-weight="300" font-size="16"
+        fill="#6B7280" letter-spacing="8">INTELLIGENT LINUX OS</text>
+  <!-- Boot menu area hint -->
+  <rect x="362" y="530" width="300" height="2" rx="1" fill="url(#g)" opacity="0.3"/>
+  <text x="512" y="565" text-anchor="middle"
+        font-family="Arial, sans-serif" font-size="13"
+        fill="#4B5563" letter-spacing="2">v1.1.0 "Baghdad"</text>
+</svg>

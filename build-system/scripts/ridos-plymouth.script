@@ -1,0 +1,83 @@
+# RIDOS OS Plymouth Boot Script
+# Brain+Circuit gradient animation
+
+Window.SetBackgroundTopColor(0.059, 0.039, 0.118);    # #0F0A1E
+Window.SetBackgroundBottomColor(0.118, 0.106, 0.294);  # #1E1B4B
+
+# Progress bar
+progress_box = Sprite();
+progress_box.SetPosition(
+    Window.GetWidth()  / 2 - 200,
+    Window.GetHeight() * 0.72,
+    10
+);
+
+progress_bar = Sprite();
+progress_bar.SetPosition(
+    Window.GetWidth()  / 2 - 198,
+    Window.GetHeight() * 0.72 + 2,
+    11
+);
+
+# RIDOS text
+logo = Sprite();
+logo.SetPosition(
+    Window.GetWidth()  / 2 - 150,
+    Window.GetHeight() / 2 - 30,
+    10
+);
+
+# Message sprite
+msg_sprite = Sprite();
+msg_sprite.SetPosition(
+    Window.GetWidth()  / 2 - 150,
+    Window.GetHeight() * 0.78,
+    10
+);
+
+progress = 0;
+
+fun progress_callback(duration) {
+    progress = duration;
+
+    # Draw progress bar background
+    box_img = Image.NewBuffer(400, 6);
+    box_img.DrawRectangle(0, 0, 400, 6, 0.169, 0.106, 0.412, 0.3);  # dark purple
+    progress_box.SetImage(box_img);
+
+    # Draw progress bar fill with gradient purple->orange
+    if (progress > 0) {
+        bar_width = Math.Int(progress * 396);
+        if (bar_width > 0) {
+            bar_img = Image.NewBuffer(bar_width, 4);
+            # Purple to magenta to orange gradient
+            r_start = 0.42; g_start = 0.13; b_start = 0.66;  # #6B21A8
+            r_end   = 0.92; g_end   = 0.35; b_end   = 0.05;  # #EA580C
+            for (x = 0; x < bar_width; x++) {
+                t = x / bar_width;
+                r = r_start + (r_end - r_start) * t;
+                g = g_start + (g_end - g_start) * t;
+                b = b_start + (b_end - b_start) * t;
+                bar_img.DrawRectangle(x, 0, 1, 4, r, g, b, 1.0);
+            }
+            progress_bar.SetImage(bar_img);
+        }
+    }
+
+    # RIDOS OS text
+    logo_img = Image.Text("RIDOS OS", 0.486, 0.227, 0.933);  # #7C3AED purple
+    logo.SetImage(logo_img);
+}
+
+fun message_callback(text) {
+    msg_img = Image.Text(text, 0.420, 0.420, 0.502);  # gray
+    msg_sprite.SetImage(msg_img);
+    msg_sprite.SetPosition(
+        Window.GetWidth() / 2 - msg_img.GetWidth() / 2,
+        Window.GetHeight() * 0.78,
+        10
+    );
+}
+
+Plymouth.SetBootProgressFunction(progress_callback);
+Plymouth.SetMessageFunction(message_callback);

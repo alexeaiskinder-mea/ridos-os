@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#065F46"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0F0A1E"/>
+  <rect width="64" height="64" rx="14" fill="none" stroke="url(#g)" stroke-width="1.5" opacity="0.7"/>
+  <circle cx="12" cy="12" r="2" fill="#065F46" opacity="0.5"/>
+  <circle cx="52" cy="12" r="2" fill="#059669" opacity="0.5"/>
+  <circle cx="12" cy="52" r="2" fill="#065F46" opacity="0.5"/>
+  <circle cx="52" cy="52" r="2" fill="#059669" opacity="0.5"/>
+  <line x1="12" y1="12" x2="22" y2="12" stroke="#065F46" stroke-width="1" opacity="0.3"/>
+  <line x1="12" y1="12" x2="12" y2="22" stroke="#065F46" stroke-width="1" opacity="0.3"/>
+  <line x1="52" y1="12" x2="42" y2="12" stroke="#059669" stroke-width="1" opacity="0.3"/>
+  <line x1="52" y1="52" x2="42" y2="52" stroke="#059669" stroke-width="1" opacity="0.3"/>
+  <text x="32" y="38" text-anchor="middle"
+        font-family="Arial Black, Arial, sans-serif"
+        font-weight="900" font-size="16"
+        fill="url(#g)">SEC</text>
+</svg>

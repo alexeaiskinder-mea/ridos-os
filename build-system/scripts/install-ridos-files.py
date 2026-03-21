@@ -10,22 +10,79 @@ def write(path, content):
 def run(cmd):
     return subprocess.run(cmd, shell=True)
 
-# Generate wallpaper - try repo file first, then generate
+# Install SVG brand assets
+import shutil, glob
+os.makedirs('chroot/usr/share/ridos/icons', exist_ok=True)
+os.makedirs('chroot/usr/share/pixmaps', exist_ok=True)
+
+# Copy all brand SVGs to system
+for svg in glob.glob('build-system/scripts/ridos-*.svg'):
+    dst = f'chroot/usr/share/ridos/{os.path.basename(svg)}'
+    shutil.copy2(svg, dst)
+    print(f"Copied: {os.path.basename(svg)}")
+
+# Copy icon pack
+for svg in glob.glob('build-system/scripts/icon-*.svg'):
+    dst = f'chroot/usr/share/ridos/icons/{os.path.basename(svg)}'
+    shutil.copy2(svg, dst)
+
+# Copy Plymouth script
+if os.path.exists('build-system/scripts/ridos-plymouth.script'):
+    shutil.copy2('build-system/scripts/ridos-plymouth.script',
+                 'chroot/usr/share/plymouth/themes/ridos/ridos.script')
+    print("Plymouth script installed")
+
+# Install GRUB theme
+os.makedirs('chroot/boot/grub/themes/ridos', exist_ok=True)
+if os.path.exists('build-system/scripts/ridos-grub.svg'):
+    shutil.copy2('build-system/scripts/ridos-grub.svg',
+                 'chroot/boot/grub/themes/ridos/background.svg')
+    print("GRUB theme installed")
+
+# Generate wallpaper from SVG brand file
 import shutil
 wallpaper_dst = 'chroot/usr/share/ridos/ridos-wallpaper.png'
-wallpaper_src = 'build-system/scripts/ridos-wallpaper.png'
+wallpaper_src_svg = 'build-system/scripts/ridos-wallpaper.svg'
+wallpaper_src_png = 'build-system/scripts/ridos-wallpaper.png'
 
-if os.path.exists(wallpaper_src) and os.path.getsize(wallpaper_src) > 1000:
-    shutil.copy2(wallpaper_src, wallpaper_dst)
-    print(f"Wallpaper copied from repo: {os.path.getsize(wallpaper_dst)} bytes")
+if os.path.exists(wallpaper_src_png) and os.path.getsize(wallpaper_src_png) > 10000:
+    shutil.copy2(wallpaper_src_png, wallpaper_dst)
+    print(f"Wallpaper copied from PNG: {os.path.getsize(wallpaper_dst)} bytes")
+elif os.path.exists(wallpaper_src_svg):
+    # Convert SVG to PNG using rsvg-convert or inkscape
+    result = run(f'rsvg-convert -w 1920 -h 1080 {wallpaper_src_svg} -o {wallpaper_dst} 2>/dev/null')
+    if not os.path.exists(wallpaper_dst) or os.path.getsize(wallpaper_dst) < 1000:
+        run(f'inkscape --export-filename={wallpaper_dst} --export-width=1920 {wallpaper_src_svg} 2>/dev/null')
+    if os.path.exists(wallpaper_dst) and os.path.getsize(wallpaper_dst) > 1000:
+        print(f"Wallpaper converted from SVG: {os.path.getsize(wallpaper_dst)} bytes")
+    else:
+        # Fallback: generate with ImageMagick
+        run(f'convert -size 1920x1080 gradient:"#0F0A1E-#2D1B69" '
+            f'-fill "rgba(196,181,253,0.2)" -font DejaVu-Sans-Bold '
+            f'-pointsize 100 -gravity center -annotate 0 "RIDOS OS" {wallpaper_dst} 2>/dev/null || true')
+        print("Wallpaper generated with fallback")
 else:
-    run('convert -size 1920x1080 gradient:"#0F0A1E-#2D1B69" '
-        '-fill "rgba(196,181,253,0.15)" -font DejaVu-Sans-Bold '
-        '-pointsize 80 -gravity center -annotate 0 "RIDOS OS" '
-        f'{wallpaper_dst} 2>/dev/null || true')
-    print("Wallpaper generated")
+    run(f'convert -size 1920x1080 gradient:"#0F0A1E-#2D1B69" '
+        f'-fill "rgba(196,181,253,0.2)" -font DejaVu-Sans-Bold '
+        f'-pointsize 100 -gravity center -annotate 0 "RIDOS OS" {wallpaper_dst} 2>/dev/null || true')
+    print("Wallpaper generated with ImageMagick")
 
-# Verify wallpaper exists
+# Generate icon from SVG
+icon_dst = 'chroot/usr/share/ridos/ridos-icon.png'
+icon_src_svg = 'build-system/scripts/ridos-icon.svg'
+if os.path.exists(icon_src_svg):
+    run(f'rsvg-convert -w 256 -h 256 {icon_src_svg} -o {icon_dst} 2>/dev/null')
+    if not os.path.exists(icon_dst) or os.path.getsize(icon_dst) < 1000:
+        run(f'convert -background none -size 256x256 {icon_src_svg} {icon_dst} 2>/dev/null')
+    if os.path.exists(icon_dst):
+        print(f"Icon generated: {os.path.getsize(icon_dst)} bytes")
+    else:
+        run(f'convert -size 256x256 gradient:"#6B21A8-#1E1B4B" '
+            f'-fill white -gravity center -font DejaVu-Sans-Bold '
+            f'-pointsize 80 -annotate 0 "R" {icon_dst} 2>/dev/null || true')
+        print("Icon generated with fallback")
+
+# Verify
 if os.path.exists(wallpaper_dst):
     print(f"Wallpaper OK: {os.path.getsize(wallpaper_dst)} bytes")
 else:

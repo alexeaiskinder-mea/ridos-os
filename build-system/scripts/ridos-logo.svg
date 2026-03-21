@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 160" width="560" height="160">
+  <defs>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#6B21A8"/>
+      <stop offset="35%"  stop-color="#C026D3"/>
+      <stop offset="70%"  stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Icon background circle -->
+  <circle cx="80" cy="80" r="72" fill="#0F0A1E"/>
+  <circle cx="80" cy="80" r="72" fill="none" stroke="url(#iconGrad)" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- CENTER DIVIDER LINE -->
+  <line x1="80" y1="18" x2="80" y2="142" stroke="url(#iconGrad)" stroke-width="1" opacity="0.3"/>
+
+  <!-- LEFT HALF: Circuit / Microchip -->
+  <!-- Horizontal traces -->
+  <path d="M80,38 L52,38 L44,46" fill="none" stroke="url(#iconGrad)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80,56 L46,56 L38,64" fill="none" stroke="url(#iconGrad)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80,74 L36,74" fill="none" stroke="url(#iconGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M80,92 L36,92" fill="none" stroke="url(#iconGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M80,110 L46,110 L38,102" fill="none" stroke="url(#iconGrad)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80,128 L52,128 L44,120" fill="none" stroke="url(#iconGrad)" stroke-width="2" stroke-linecap="round"/>
+  <!-- Vertical bus line -->
+  <line x1="36" y1="64" x2="36" y2="102" stroke="url(#iconGrad)" stroke-width="2" stroke-linecap="round"/>
+  <!-- Nodes (pads) -->
+  <circle cx="44" cy="46"  r="4" fill="#6B21A8"/>
+  <circle cx="38" cy="64"  r="5" fill="#C026D3" filter="url(#glow)"/>
+  <circle cx="36" cy="74"  r="3" fill="#C026D3"/>
+  <circle cx="36" cy="92"  r="3" fill="#EA580C"/>
+  <circle cx="38" cy="102" r="5" fill="#EA580C" filter="url(#glow)"/>
+  <circle cx="44" cy="120" r="4" fill="#F97316"/>
+  <!-- Microchip body -->
+  <rect x="20" y="68" width="14" height="30" rx="2" fill="#1E1B4B" stroke="url(#iconGrad)" stroke-width="1"/>
+  <!-- Chip pins -->
+  <line x1="14" y1="73" x2="20" y2="73" stroke="#6B21A8" stroke-width="2"/>
+  <line x1="14" y1="80" x2="20" y2="80" stroke="#C026D3" stroke-width="2"/>
+  <line x1="14" y1="87" x2="20" y2="87" stroke="#C026D3" stroke-width="2"/>
+  <line x1="14" y1="94" x2="20" y2="94" stroke="#EA580C" stroke-width="2"/>
+
+  <!-- RIGHT HALF: Brain organic curves -->
+  <!-- Outer brain shape -->
+  <path d="M80,26
+           C92,22 108,24 116,34
+           C125,44 124,56 119,65
+           C128,72 130,83 126,93
+           C130,103 126,117 116,124
+           C106,131 90,130 83,126
+           C81,124 80,122 80,120"
+        fill="none" stroke="url(#iconGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Inner brain folds -->
+  <path d="M88,36 C97,30 112,34 116,44"
+        fill="none" stroke="#C026D3" stroke-width="1.8" opacity="0.75" stroke-linecap="round"/>
+  <path d="M84,54 C94,48 114,52 120,62"
+        fill="none" stroke="#C026D3" stroke-width="1.8" opacity="0.75" stroke-linecap="round"/>
+  <path d="M82,73 C92,67 116,71 122,81"
+        fill="none" stroke="#EA580C" stroke-width="1.8" opacity="0.75" stroke-linecap="round"/>
+  <path d="M83,92 C93,86 114,90 120,100"
+        fill="none" stroke="#EA580C" stroke-width="1.8" opacity="0.75" stroke-linecap="round"/>
+  <path d="M86,111 C95,106 112,109 115,118"
+        fill="none" stroke="#F97316" stroke-width="1.5" opacity="0.6" stroke-linecap="round"/>
+  <!-- Brain fold end nodes -->
+  <circle cx="116" cy="44"  r="3.5" fill="#C026D3" filter="url(#glow)"/>
+  <circle cx="120" cy="63"  r="3.5" fill="#C026D3" filter="url(#glow)"/>
+  <circle cx="122" cy="82"  r="3.5" fill="#EA580C" filter="url(#glow)"/>
+  <circle cx="120" cy="101" r="3.5" fill="#EA580C" filter="url(#glow)"/>
+  <circle cx="115" cy="119" r="3"   fill="#F97316"/>
+
+  <!-- CENTER FUSION DOT -->
+  <circle cx="80" cy="80" r="7" fill="url(#iconGrad)" filter="url(#glow)"/>
+  <circle cx="80" cy="80" r="3" fill="white" opacity="0.9"/>
+
+  <!-- RIDOS TEXT -->
+  <text x="178" y="100"
+        font-family="Arial Black, Arial, sans-serif"
+        font-weight="900"
+        font-size="80"
+        fill="url(#textGrad)"
+        letter-spacing="-2">RIDOS</text>
+
+  <!-- TAGLINE -->
+  <text x="180" y="125"
+        font-family="Arial, sans-serif"
+        font-weight="300"
+        font-size="13"
+        fill="#6B7280"
+        letter-spacing="5">INTELLIGENT LINUX OS</text>
+</svg>

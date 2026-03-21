@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#6B21A8"/>
+      <stop offset="35%"  stop-color="#C026D3"/>
+      <stop offset="70%"  stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="200" height="200" rx="44" fill="#0F0A1E"/>
+  <rect width="200" height="200" rx="44" fill="none" stroke="url(#g)" stroke-width="2" opacity="0.4"/>
+  <!-- Divider -->
+  <line x1="100" y1="22" x2="100" y2="178" stroke="url(#g)" stroke-width="1" opacity="0.25"/>
+  <!-- Circuit left -->
+  <path d="M100,42 L68,42 L56,54"  fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M100,68 L52,68 L40,80"  fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M100,100 L36,100"        fill="none" stroke="url(#g)" stroke-width="3"   stroke-linecap="round"/>
+  <path d="M100,132 L52,132 L40,120" fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M100,158 L68,158 L56,146" fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="40" y1="80" x2="40" y2="120" stroke="url(#g)" stroke-width="2.5"/>
+  <!-- Chip body -->
+  <rect x="18" y="82" width="20" height="36" rx="3" fill="#1E1B4B" stroke="url(#g)" stroke-width="1.5"/>
+  <line x1="12" y1="89"  x2="18" y2="89"  stroke="#6B21A8" stroke-width="2.5"/>
+  <line x1="12" y1="100" x2="18" y2="100" stroke="#C026D3" stroke-width="2.5"/>
+  <line x1="12" y1="111" x2="18" y2="111" stroke="#EA580C" stroke-width="2.5"/>
+  <!-- Nodes -->
+  <circle cx="56" cy="54"  r="6" fill="#6B21A8"/>
+  <circle cx="40" cy="80"  r="7" fill="#C026D3" filter="url(#glow)"/>
+  <circle cx="36" cy="100" r="8" fill="#EA580C" filter="url(#glow)"/>
+  <circle cx="40" cy="120" r="7" fill="#C026D3" filter="url(#glow)"/>
+  <circle cx="56" cy="146" r="6" fill="#F97316"/>
+  <!-- Brain right -->
+  <path d="M100,30
+           C116,25 138,28 148,42
+           C160,57 158,74 151,86
+           C162,95 163,112 154,124
+           C162,136 156,156 143,163
+           C130,170 112,167 105,162
+           C102,160 100,157 100,154"
+        fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M110,44 C122,37 142,42 148,55"
+        fill="none" stroke="#C026D3" stroke-width="2" opacity="0.75" stroke-linecap="round"/>
+  <path d="M106,70 C118,63 144,68 152,80"
+        fill="none" stroke="#C026D3" stroke-width="2" opacity="0.75" stroke-linecap="round"/>
+  <path d="M103,98 C116,91 146,96 154,108"
+        fill="none" stroke="#EA580C" stroke-width="2" opacity="0.75" stroke-linecap="round"/>
+  <path d="M105,126 C118,119 140,124 146,136"
+        fill="none" stroke="#EA580C" stroke-width="2" opacity="0.7" stroke-linecap="round"/>
+  <circle cx="148" cy="56"  r="5" fill="#C026D3" filter="url(#glow)"/>
+  <circle cx="153" cy="81"  r="5" fill="#C026D3" filter="url(#glow)"/>
+  <circle cx="155" cy="109" r="5" fill="#EA580C" filter="url(#glow)"/>
+  <circle cx="147" cy="137" r="5" fill="#EA580C" filter="url(#glow)"/>
+  <!-- Center -->
+  <circle cx="100" cy="100" r="10" fill="url(#g)" filter="url(#glow)"/>
+  <circle cx="100" cy="100" r="4"  fill="white" opacity="0.9"/>
+</svg>
