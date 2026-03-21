@@ -35,7 +35,9 @@ sequence:
       - keyboard
       - users
       - displaymanager
+      - packages
       - grubcfg
+      - shellprocess
       - bootloader
       - finished
 
@@ -173,12 +175,11 @@ operations:
   - remove:
       - live-boot
       - live-boot-initramfs-tools
-      - live-config
-      - live-config-systemd
+      - calamares
   - install:
       - grub-pc
+      - grub-pc-bin
       - grub2-common
-      - os-prober
 ''')
 
 # networkcfg module
@@ -213,10 +214,7 @@ grubCfg: "/boot/grub/grub.cfg"
 grubProbe: "grub-probe"
 efiInstallerPath: "/usr/bin/efibootmgr"
 installEFIFallback: false
-canBeSkipped: false
-grubInstallOptions:
-  - "--force"
-  - "--recheck"
+canBeSkipped: true
 ''')
 
 write('chroot/etc/default/grub',
@@ -237,6 +235,22 @@ run('convert -size 200x200 gradient:"#6B21A8-#1E1B4B" '
 
 run('cp chroot/etc/calamares/branding/ridos/logo.png '
     'chroot/etc/calamares/branding/ridos/languages.png 2>/dev/null || true')
+
+# Add shellprocess module - manual GRUB install as reliable fallback
+import os
+os.makedirs('chroot/etc/calamares/modules', exist_ok=True)
+
+write('chroot/etc/calamares/modules/shellprocess.conf', '''---
+dontChroot: false
+timeout: 120
+verbose: true
+
+script:
+  - command: "grub-install --target=i386-pc --force /dev/sda"
+    timeout: 120
+  - command: "update-grub"
+    timeout: 60
+''')
 
 # Remove calamares-settings-debian which overrides our config
 import subprocess

@@ -10,7 +10,7 @@ from tkinter import ttk, messagebox
 import subprocess, json, os, sys, threading, time, socket
 from datetime import datetime
 
-# ── Colors ────────────────────────────────────────────────────
+# ----------------------------------------
 BG       = "#0F0A1E"
 BG2      = "#1E1B4B"
 BG3      = "#2D1B69"
@@ -26,7 +26,7 @@ CYAN     = "#06B6D4"
 WHITE    = "#FFFFFF"
 GRAY     = "#374151"
 
-# ── Safe Actions (AI can only trigger these) ──────────────────
+# ----------------------------------------
 SAFE_ACTIONS = {
     "clear_cache":       "sync; echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null",
     "system_clean":      "sudo apt-get autoremove -y && sudo apt-get autoclean -y",
@@ -40,7 +40,7 @@ SAFE_ACTIONS = {
     "check_temps":       "sensors 2>/dev/null || echo 'lm-sensors not installed'",
 }
 
-# ── API Configuration ─────────────────────────────────────────
+# ----------------------------------------
 API_KEY_FILE = "/etc/ridos/api.key"
 API_URL      = "https://api.anthropic.com/v1/messages"
 MODEL        = "claude-haiku-4-5-20251001"
@@ -101,7 +101,7 @@ Uptime={data['uptime_h']}h Internet={'Yes' if data['internet'] else 'No'}
 Top processes: {[p['name'] for p in data['top_procs']]}
 
 Return ONLY this JSON format (no other text):
-{{"status": "healthy|warning|critical", "message": "brief status in English and Arabic", "issues": [{{"problem": "description", "action": "safe_action_key"}}]}}
+{{"status": "healthy|warning|critical", "message": "brief status in English", "issues": [{{"problem": "description", "action": "safe_action_key"}}]}}
 
 Available actions: clear_cache, system_clean, update_system, restart_network, fix_dns, enable_firewall, kill_zombies
 Only include issues that actually need fixing."""
@@ -141,27 +141,27 @@ def local_analysis(data):
 
     if data['cpu_percent'] > 85:
         status = "critical"
-        issues.append({"problem": "⚠️ Critical CPU usage detected ", "action": "kill_zombies"})
+        issues.append({"problem": "CRITICAL: CPU usage very high", "action": "kill_zombies"})
     elif data['cpu_percent'] > 70:
         status = "warning"
-        issues.append({"problem": "⚠️ High CPU usage ", "action": None})
+        issues.append({"problem": "WARNING: CPU usage high", "action": None})
 
     if data['ram_percent'] > 85:
         status = "critical"
-        issues.append({"problem": "⚠️ Critical RAM usage ", "action": "clear_cache"})
+        issues.append({"problem": "CRITICAL: RAM usage very high", "action": "clear_cache"})
     elif data['ram_percent'] > 75:
         status = "warning"
-        issues.append({"problem": "⚠️ High RAM usage ", "action": "clear_cache"})
+        issues.append({"problem": "WARNING: RAM usage high", "action": "clear_cache"})
 
     if data['disk_percent'] > 90:
         status = "critical"
-        issues.append({"problem": "⚠️ Disk almost full ", "action": "system_clean"})
+        issues.append({"problem": "CRITICAL: Disk almost full", "action": "system_clean"})
     elif data['disk_percent'] > 80:
         status = "warning"
-        issues.append({"problem": "⚠️ Disk usage high ", "action": "system_clean"})
+        issues.append({"problem": "WARNING: Disk usage high", "action": "system_clean"})
 
     if not data['internet']:
-        issues.append({"problem": "⚠️ No internet connection ", "action": "restart_network"})
+        issues.append({"problem": "WARNING: No internet connection", "action": "restart_network"})
 
     if status != "healthy":
         message = f"Issues detected: {len(issues)}  issues found: {len(issues)}"
@@ -169,9 +169,9 @@ def local_analysis(data):
     return {"status": status, "message": message, "issues": issues}
 
 
-# ════════════════════════════════════════════════════════════════
+# ========================================
 # MAIN UI
-# ════════════════════════════════════════════════════════════════
+# ========================================
 class RIDOSControlCenter:
     def __init__(self):
         self.root = tk.Tk()
@@ -189,21 +189,21 @@ class RIDOSControlCenter:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self):
-        # ── Header ────────────────────────────────────────────
+        # ----------------------------------------
         hdr = tk.Frame(self.root, bg=PURPLE, pady=8)
         hdr.pack(fill='x')
         tk.Label(hdr, text="  RIDOS OS", font=("DejaVu Sans", 20, "bold"),
                  bg=PURPLE, fg=WHITE).pack(side='left', padx=10)
         tk.Label(hdr, text="Control Center",
                  font=("Arial", 12), bg=PURPLE, fg=TEXT2).pack(side='left')
-        self.status_dot = tk.Label(hdr, text="●", font=("Arial", 16),
+        self.status_dot = tk.Label(hdr, text="*", font=("Arial", 16),
                                     bg=PURPLE, fg=YELLOW)
         self.status_dot.pack(side='right', padx=15)
         self.time_label = tk.Label(hdr, text="", font=("Arial", 10),
                                     bg=PURPLE, fg=TEXT2)
         self.time_label.pack(side='right', padx=5)
 
-        # ── System Status Row ─────────────────────────────────
+        # ----------------------------------------
         status_row = tk.Frame(self.root, bg=BG2, pady=10)
         status_row.pack(fill='x', padx=10, pady=(8,0))
 
@@ -215,15 +215,15 @@ class RIDOSControlCenter:
         for card in [self.cpu_card, self.ram_card, self.disk_card, self.net_card]:
             card['frame'].pack(side='left', expand=True, fill='both', padx=5)
 
-        # ── AI Status Message ─────────────────────────────────
-        self.ai_msg = tk.Label(self.root, text="🤖 Analyzing system...",
+        # ----------------------------------------
+        self.ai_msg = tk.Label(self.root, text="[AI] Analyzing system...",
                                 font=("Arial", 11), bg=BG, fg=PURPLE3)
         self.ai_msg.pack(pady=(10,0))
 
-        # ── Issues Panel ──────────────────────────────────────
+        # ----------------------------------------
         issues_lbl = tk.Frame(self.root, bg=BG)
         issues_lbl.pack(fill='x', padx=10, pady=(5,0))
-        tk.Label(issues_lbl, text="⚠  Detected Issues",
+        tk.Label(issues_lbl, text="Detected Issues",
                  font=("Arial", 11, "bold"), bg=BG, fg=TEXT2).pack(side='left')
 
         self.issues_frame = tk.Frame(self.root, bg=BG2, padx=10, pady=8)
@@ -231,16 +231,16 @@ class RIDOSControlCenter:
         tk.Label(self.issues_frame, text="Scanning...", bg=BG2, fg=GRAY,
                  font=("Arial", 10)).pack()
 
-        # ── Action Buttons ────────────────────────────────────
+        # ----------------------------------------
         btn_row = tk.Frame(self.root, bg=BG, pady=8)
         btn_row.pack(fill='x', padx=10)
 
         buttons = [
-            ("🔄 Refresh & Analyze", self._refresh, PURPLE),
-            ("🛠️  AI Terminal",       self._open_ai_terminal, BG3),
-            ("📦 Software Center",   self._open_software, BG3),
-            ("🌐 Network Scan",      self._run_network, BG3),
-            ("🔒 Security Scan",     self._run_security, BG3),
+            ("Refresh & Analyze", self._refresh, PURPLE),
+            ("AI Terminal",       self._open_ai_terminal, BG3),
+            ("Software Center",   self._open_software, BG3),
+            ("Network Scan",      self._run_network, BG3),
+            ("Security Scan",     self._run_security, BG3),
         ]
         for text, cmd, color in buttons:
             tk.Button(btn_row, text=text, command=cmd,
@@ -248,7 +248,7 @@ class RIDOSControlCenter:
                       relief='flat', padx=8, pady=6,
                       cursor='hand2').pack(side='left', padx=3, expand=True)
 
-        # ── Footer ────────────────────────────────────────────
+        # ----------------------------------------
         footer = tk.Frame(self.root, bg=BG, pady=4)
         footer.pack(fill='x')
         self.footer_msg = tk.Label(footer,
@@ -276,7 +276,7 @@ class RIDOSControlCenter:
         card['sub'].config(text=sub_text)
 
     def _refresh(self):
-        self.ai_msg.config(text="🤖 Analyzing system...", fg=YELLOW)
+        self.ai_msg.config(text="[AI] Analyzing system...", fg=YELLOW)
         self.root.update()
         threading.Thread(target=self._do_refresh, daemon=True).start()
 
@@ -287,7 +287,7 @@ class RIDOSControlCenter:
             self.root.after(0, self._update_ui)
         except Exception as e:
             self.root.after(0, lambda: self.ai_msg.config(
-                text=f"⚠️ Error: {str(e)[:50]}", fg=RED))
+                text=f"[ERROR] {str(e)[:50]}", fg=RED))
 
     def _update_ui(self):
         d  = self.data
@@ -318,9 +318,9 @@ class RIDOSControlCenter:
         self.status_dot.config(fg=dot_color)
 
         # AI message
-        api_status = "🌐 🌐 Online" if (d['internet'] and d['api_ready']) else "⚡ Offline"
+        api_status = "Internet: Online" if (d['internet'] and d['api_ready']) else " Offline"
         self.ai_msg.config(
-            text=f"{api_status}  —  {dc.get('message', 'Analyzing...')}",
+            text=f"{api_status}  -  {dc.get('message', 'Analyzing...')}",
             fg=PURPLE3)
 
         # Issues
@@ -330,7 +330,7 @@ class RIDOSControlCenter:
         issues = dc.get('issues', [])
         if not issues:
             tk.Label(self.issues_frame,
-                text="✅  System Healthy — No issues detected | النظام بصحة جيدة",
+                text="[ OK ] System Healthy - No issues detected",
                 font=("Arial", 11), bg=BG2, fg=GREEN).pack(pady=10)
         else:
             for issue in issues:
@@ -345,7 +345,7 @@ class RIDOSControlCenter:
                          wraplength=500, justify='left').pack(side='left', expand=True, anchor='w')
                 action = issue.get('action')
                 if action and action in SAFE_ACTIONS:
-                    tk.Button(row, text="Fix Now",
+                    tk.Button(row, text="[ Fix ]",
                               command=lambda a=action: self._run_action(a),
                               bg=PURPLE, fg=WHITE, font=("Arial", 9, "bold"),
                               relief='flat', padx=8, pady=3,
@@ -368,7 +368,7 @@ class RIDOSControlCenter:
             try:
                 result = subprocess.run(
                     cmd, shell=True, capture_output=True, text=True, timeout=30)
-                msg = f"✅ Action completed!\n\n{result.stdout[:300]}"
+                msg = f"Action completed!\n\n{result.stdout[:300]}"
                 if result.returncode != 0:
                     msg += f"\n\nWarning: {result.stderr[:200]}"
                 messagebox.showinfo("Done", msg)
