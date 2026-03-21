@@ -137,34 +137,34 @@ def local_analysis(data):
     """Offline fallback analysis"""
     issues  = []
     status  = "healthy"
-    message = "System is running normally | النظام يعمل بشكل طبيعي"
+    message = "System is running normally "
 
     if data['cpu_percent'] > 85:
         status = "critical"
-        issues.append({"problem": "⚠️ Critical CPU usage detected | استخدام حرج للمعالج", "action": "kill_zombies"})
+        issues.append({"problem": "⚠️ Critical CPU usage detected ", "action": "kill_zombies"})
     elif data['cpu_percent'] > 70:
         status = "warning"
-        issues.append({"problem": "⚠️ High CPU usage | استخدام مرتفع للمعالج", "action": None})
+        issues.append({"problem": "⚠️ High CPU usage ", "action": None})
 
     if data['ram_percent'] > 85:
         status = "critical"
-        issues.append({"problem": "⚠️ Critical RAM usage | استخدام حرج للذاكرة", "action": "clear_cache"})
+        issues.append({"problem": "⚠️ Critical RAM usage ", "action": "clear_cache"})
     elif data['ram_percent'] > 75:
         status = "warning"
-        issues.append({"problem": "⚠️ High RAM usage | استخدام مرتفع للذاكرة", "action": "clear_cache"})
+        issues.append({"problem": "⚠️ High RAM usage ", "action": "clear_cache"})
 
     if data['disk_percent'] > 90:
         status = "critical"
-        issues.append({"problem": "⚠️ Disk almost full | القرص شبه ممتلئ", "action": "system_clean"})
+        issues.append({"problem": "⚠️ Disk almost full ", "action": "system_clean"})
     elif data['disk_percent'] > 80:
         status = "warning"
-        issues.append({"problem": "⚠️ Disk usage high | استخدام القرص مرتفع", "action": "system_clean"})
+        issues.append({"problem": "⚠️ Disk usage high ", "action": "system_clean"})
 
     if not data['internet']:
-        issues.append({"problem": "⚠️ No internet connection | لا يوجد اتصال بالإنترنت", "action": "restart_network"})
+        issues.append({"problem": "⚠️ No internet connection ", "action": "restart_network"})
 
     if status != "healthy":
-        message = f"Issues detected: {len(issues)} | مشاكل مكتشفة: {len(issues)}"
+        message = f"Issues detected: {len(issues)}  issues found: {len(issues)}"
 
     return {"status": status, "message": message, "issues": issues}
 
@@ -192,9 +192,9 @@ class RIDOSControlCenter:
         # ── Header ────────────────────────────────────────────
         hdr = tk.Frame(self.root, bg=PURPLE, pady=8)
         hdr.pack(fill='x')
-        tk.Label(hdr, text="  RIDOS OS", font=("Arial", 20, "bold"),
+        tk.Label(hdr, text="  RIDOS OS", font=("DejaVu Sans", 20, "bold"),
                  bg=PURPLE, fg=WHITE).pack(side='left', padx=10)
-        tk.Label(hdr, text="Control Center  |  مركز التحكم",
+        tk.Label(hdr, text="Control Center",
                  font=("Arial", 12), bg=PURPLE, fg=TEXT2).pack(side='left')
         self.status_dot = tk.Label(hdr, text="●", font=("Arial", 16),
                                     bg=PURPLE, fg=YELLOW)
@@ -223,7 +223,7 @@ class RIDOSControlCenter:
         # ── Issues Panel ──────────────────────────────────────
         issues_lbl = tk.Frame(self.root, bg=BG)
         issues_lbl.pack(fill='x', padx=10, pady=(5,0))
-        tk.Label(issues_lbl, text="⚠ Detected Issues | المشكلات المكتشفة",
+        tk.Label(issues_lbl, text="⚠  Detected Issues",
                  font=("Arial", 11, "bold"), bg=BG, fg=TEXT2).pack(side='left')
 
         self.issues_frame = tk.Frame(self.root, bg=BG2, padx=10, pady=8)
@@ -259,7 +259,7 @@ class RIDOSControlCenter:
     def _stat_card(self, parent, title, value, unit):
         frame = tk.Frame(parent, bg=BG3, padx=8, pady=8)
         tk.Label(frame, text=title, font=("Arial", 9), bg=BG3, fg=PURPLE3).pack()
-        val_lbl = tk.Label(frame, text=value, font=("Arial", 18, "bold"),
+        val_lbl = tk.Label(frame, text=value, font=("DejaVu Sans", 18, "bold"),
                            bg=BG3, fg=WHITE)
         val_lbl.pack()
         bar = ttk.Progressbar(frame, length=80, mode='determinate')
@@ -276,7 +276,7 @@ class RIDOSControlCenter:
         card['sub'].config(text=sub_text)
 
     def _refresh(self):
-        self.ai_msg.config(text="🤖 Analyzing system... يحلل النظام...", fg=YELLOW)
+        self.ai_msg.config(text="🤖 Analyzing system...", fg=YELLOW)
         self.root.update()
         threading.Thread(target=self._do_refresh, daemon=True).start()
 
@@ -318,7 +318,7 @@ class RIDOSControlCenter:
         self.status_dot.config(fg=dot_color)
 
         # AI message
-        api_status = "🌐 AI Online" if (d['internet'] and d['api_ready']) else "⚡ Offline Mode"
+        api_status = "🌐 🌐 Online" if (d['internet'] and d['api_ready']) else "⚡ Offline"
         self.ai_msg.config(
             text=f"{api_status}  |  {dc.get('message', 'Analyzing...')}",
             fg=PURPLE3)

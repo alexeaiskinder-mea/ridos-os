@@ -238,107 +238,103 @@ Format: Status [GOOD/WARNING/CRITICAL], key findings, top 3 recommendations. Kee
 # 3. AI NETWORK ANALYZER (Advanced)
 # ════════════════════════════════════════════════════════════════
 def run_network_analyzer():
-    print_banner("RIDOS AI Network Analyzer","محلل شبكة ريدوس المتقدم")
+    print_banner("RIDOS AI Network Analyzer","Advanced Network Diagnostics")
 
     net_data = {}
 
     # Interfaces
-    print_section("Network Interfaces","واجهات الشبكة")
+    print_section("Network Interfaces","")
     try:
         iface_output = run_cmd("ip addr show") or "N/A"
-        net_data['interfaces'] = iface_output[:1000]
-        for line in iface_output.split('\n')[:20]:
-            if line.strip() and ('inet ' in line or (': ' in line and 'lo' not in line)):
+        net_data['interfaces'] = iface_output[:800]
+        for line in iface_output.split('\n'):
+            if line.strip() and ('inet ' in line or ('state UP' in line)):
                 print(f"  {CYAN}{line.strip()}{RESET}")
     except Exception as e:
-        print(f"  {YELLOW}Interface check skipped: {e}{RESET}")
+        print(f"  {YELLOW}Skipped: {e}{RESET}")
+        net_data['interfaces'] = 'N/A'
 
-    # Gateway & routing
-    print_section("Routing Table","جدول التوجيه")
+    # Routing
+    print_section("Default Gateway","")
     try:
-        route_out = run_cmd("ip route show") or "N/A"
-        net_data['routing'] = route_out
-        print(f"  {CYAN}{route_out[:400]}{RESET}")
+        route_out = run_cmd("ip route show default") or "N/A"
+        net_data['routing'] = route_out[:300]
+        print(f"  {CYAN}{route_out[:200]}{RESET}")
     except Exception as e:
-        print(f"  {YELLOW}Routing check skipped: {e}{RESET}")
+        print(f"  {YELLOW}Skipped: {e}{RESET}")
+        net_data['routing'] = 'N/A'
 
     # DNS
-    print_section("DNS Configuration","إعداد DNS")
+    print_section("DNS Servers","")
     try:
-        dns_out = run_cmd("cat /etc/resolv.conf") or "N/A"
-        net_data['dns'] = dns_out
-        print(f"  {CYAN}{dns_out[:200]}{RESET}")
+        dns_out = run_cmd("cat /etc/resolv.conf 2>/dev/null") or "N/A"
+        net_data['dns'] = dns_out[:200]
+        for line in dns_out.split('\n'):
+            if 'nameserver' in line:
+                print(f"  {CYAN}{line}{RESET}")
     except Exception as e:
-        print(f"  {YELLOW}DNS check skipped: {e}{RESET}")
+        print(f"  {YELLOW}Skipped: {e}{RESET}")
+        net_data['dns'] = 'N/A'
 
-    # Connectivity tests
-    print_section("Connectivity Tests","اختبارات الاتصال")
-    targets = [("8.8.8.8","Google DNS"),("1.1.1.1","Cloudflare"),
-               ("deb.debian.org","Debian"),("api.anthropic.com","RIDOS AI")]
+    # Connectivity
+    print_section("Connectivity Tests","")
+    targets = [("8.8.8.8","Google DNS"),("1.1.1.1","Cloudflare"),("deb.debian.org","Debian")]
     net_data['connectivity'] = {}
     for host, name in targets:
-        out = run_cmd(f"ping -c 2 -W 2 {host}")
-        if 'time=' in out:
-            latency = re.search(r'time=(\d+\.?\d*)', out)
-            lat = latency.group(1) if latency else '?'
-            net_data['connectivity'][name] = f"✅ {lat}ms"
-            print(f"  ✅ {name}: {lat}ms")
-        else:
-            net_data['connectivity'][name] = "❌ Unreachable"
-            print(f"  ❌ {name}: Unreachable")
-
-    # Active connections
-    print_section("Active Connections","الاتصالات النشطة")
-    conn_out = run_cmd("ss -tuln")
-    net_data['connections'] = conn_out[:800]
-    print(f"  {CYAN}{conn_out[:600]}{RESET}")
-
-    # WiFi info if available
-    wifi_out = run_cmd("iwconfig 2>/dev/null || iw dev 2>/dev/null")
-    if wifi_out.strip():
-        print_section("WiFi Status","حالة الواي فاي")
-        net_data['wifi'] = wifi_out[:400]
-        print(f"  {CYAN}{wifi_out[:400]}{RESET}")
-
-    # Bandwidth test (quick)
-    print_section("Bandwidth Test","اختبار عرض النطاق")
-    print(f"  {YELLOW}Testing download speed...{RESET}")
-    bw_result = run_cmd("curl -o /dev/null -s -w '%{speed_download}' --max-time 5 http://speedtest.tele2.net/1MB.zip 2>/dev/null")
-    if bw_result:
         try:
-            speed_bps = float(bw_result.strip())
-            speed_mbps = round(speed_bps / 1024 / 1024 * 8, 2)
-            net_data['download_mbps'] = speed_mbps
-            quality = "🟢 Good" if speed_mbps > 10 else "🟡 Limited" if speed_mbps > 1 else "🔴 Poor"
-            print(f"  {quality} Download: {speed_mbps} Mbps")
-        except:
-            print(f"  ⚠️  Speed test unavailable")
+            out = run_cmd(f"ping -c 2 -W 3 {host} 2>/dev/null")
+            if out and 'time=' in out:
+                import re
+                m = re.search(r'time=(\S+)', out)
+                lat = m.group(1) if m else '?'
+                net_data['connectivity'][name] = f"OK ({lat}ms)"
+                print(f"  {GREEN}✅ {name}: {lat}ms{RESET}")
+            else:
+                net_data['connectivity'][name] = "Unreachable"
+                print(f"  {RED}❌ {name}: Unreachable{RESET}")
+        except Exception as e:
+            net_data['connectivity'][name] = "Error"
+            print(f"  {YELLOW}⚠️  {name}: {e}{RESET}")
+
+    # Open ports
+    print_section("Listening Ports","")
+    try:
+        ports_out = run_cmd("ss -tuln 2>/dev/null | head -20") or "N/A"
+        net_data['ports'] = ports_out[:600]
+        print(f"{CYAN}{ports_out[:400]}{RESET}")
+    except Exception as e:
+        print(f"  {YELLOW}Skipped: {e}{RESET}")
+        net_data['ports'] = 'N/A'
 
     # Optional target scan
     print(f"\n{WHITE}Enter IP to scan (or press Enter to skip){RESET}")
-    print(f"{WHITE}أدخل IP للفحص (أو اضغط Enter للتخطي){RESET}")
-    target = input(f"{PURPLE}Target: {RESET}").strip()
-    if target:
-        print(f"{YELLOW}🔍 Scanning {target}...{RESET}")
-        nmap_out = run_cmd(f"nmap -F -T4 {target}", timeout=60)
-        net_data['scan'] = nmap_out[:1000]
-        print(f"{CYAN}{nmap_out[:800]}{RESET}")
+    try:
+        target = input(f"{PURPLE}Target: {RESET}").strip()
+        if target:
+            print(f"{YELLOW}Scanning {target}...{RESET}")
+            nmap_out = run_cmd(f"nmap -F -T4 {target} 2>/dev/null", timeout=60) or "N/A"
+            net_data['scan'] = nmap_out[:800]
+            print(f"{CYAN}{nmap_out[:600]}{RESET}")
+    except (KeyboardInterrupt, EOFError):
+        pass
 
-    print(f"\n{YELLOW}🤖 AI analyzing network... يحلل الشبكة...{RESET}\n")
-    SYSTEM = """Bilingual network expert for IT professionals.
-Analyze network data, respond in English AND Arabic.
-Include: connectivity status, potential issues, security notes, recommendations.
-Keep response practical and concise."""
-    prompt = f"""Network analysis data:
-Routing: {net_data.get('routing','')[:200]}
-DNS: {net_data.get('dns','')[:100]}
+    print(f"\n{YELLOW}AI analyzing... {RESET}\n")
+    SYSTEM = """Network expert. Analyze network data concisely.
+Format:
+CONNECTIVITY: [status]
+ISSUES: [list any problems]
+RECOMMENDATIONS: [actionable steps]
+Keep response short and practical."""
+
+    prompt = f"""Network scan:
+Routing: {net_data.get('routing','N/A')[:150]}
+DNS: {net_data.get('dns','N/A')[:100]}
 Connectivity: {json.dumps(net_data.get('connectivity',{}))}
-Download: {net_data.get('download_mbps','unknown')} Mbps
-Active ports: {net_data.get('connections','')[:300]}
-{('Scan: '+net_data.get('scan','')[:300]) if net_data.get('scan') else ''}"""
-    print(f"{GREEN}{ask_claude(prompt, SYSTEM, 800)}{RESET}\n")
+Ports: {net_data.get('ports','N/A')[:200]}"""
 
-# ════════════════════════════════════════════════════════════════
+    print(f"{GREEN}{ask_claude(prompt, SYSTEM, 600)}{RESET}\n")
+
+# ══# ════════════════════════════════════════════════════════════════
 # 4. AI HARDWARE FIXER (HDD/SSD/NVMe/RAM)
 # ════════════════════════════════════════════════════════════════
 def run_hardware_fixer():

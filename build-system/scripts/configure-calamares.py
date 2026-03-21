@@ -15,7 +15,7 @@ os.makedirs('chroot/etc/calamares/branding/ridos', exist_ok=True)
 os.makedirs('chroot/etc/calamares/modules', exist_ok=True)
 
 write('chroot/etc/calamares/settings.conf', '''---
-modules-search: [ local ]
+modules-search: [ local, /usr/lib/calamares/modules ]
 
 sequence:
   - show:
@@ -35,7 +35,6 @@ sequence:
       - keyboard
       - users
       - displaymanager
-      - networkcfg
       - grubcfg
       - bootloader
       - finished
@@ -133,9 +132,13 @@ passwordRequirements:
   minLength: 6
 ''')
 
+# Find squashfs path - check multiple locations
 write('chroot/etc/calamares/modules/unpackfs.conf', '''---
 unpack:
   - source: "/run/live/medium/live/filesystem.squashfs"
+    sourcefs: "squashfs"
+    destination: ""
+  - source: "/lib/live/mount/medium/live/filesystem.squashfs"
     sourcefs: "squashfs"
     destination: ""
 ''')
@@ -146,7 +149,57 @@ displaymanagers:
 defaultDesktopEnvironment:
   executable: "startxfce4"
   desktopFile: "xfce.desktop"
+basicSetup: false
 ''')
+
+# locale module config
+write('chroot/etc/calamares/modules/locale.conf', '''---
+region: "Asia"
+zone: "Baghdad"
+useSystemTimezone: false
+''')
+
+# keyboard module config  
+write('chroot/etc/calamares/modules/keyboard.conf', '''---
+convertedKeymapPath: "/lib/kbd/keymaps/xkb"
+writeEtcDefaultKeyboard: true
+''')
+
+# packages module - remove live packages after install
+write('chroot/etc/calamares/modules/packages.conf', '''---
+backend: apt
+update_db: true
+operations:
+  - remove:
+      - live-boot
+      - live-boot-initramfs-tools
+      - live-config
+      - live-config-systemd
+''')
+
+# networkcfg module
+write('chroot/etc/calamares/modules/networkcfg.conf', '''---
+explicitNMconfig: true
+''')
+
+# fstab module - REQUIRED to fix 'No mountOptions' error
+write('chroot/etc/calamares/modules/fstab.conf', '''---
+mountOptions:
+  default: defaults
+  btrfs: defaults,noatime,autodefrag
+  ext4: defaults,noatime
+  fat32: defaults,umask=0077
+  vfat: defaults,umask=0077
+
+ssdExtraMountOptions:
+  ext4: discard
+  btrfs: discard,ssd
+
+efiMountOptions: umask=0077
+
+ensureSuspendToDisk: true
+neverCheckSuspendToDisk: false
+'''  )
 
 write('chroot/etc/calamares/modules/bootloader.conf', '''---
 efiBootLoader: "grub"
@@ -176,6 +229,18 @@ run('convert -size 200x200 gradient:"#6B21A8-#1E1B4B" '
 
 run('cp chroot/etc/calamares/branding/ridos/logo.png '
     'chroot/etc/calamares/branding/ridos/languages.png 2>/dev/null || true')
+
+# Remove calamares-settings-debian which overrides our config
+import subprocess
+subprocess.run('chroot chroot apt-get remove -y calamares-settings-debian 2>/dev/null || true', shell=True)
+print("Removed calamares-settings-debian to prevent config override")
+
+# Create debug launcher script
+with open('chroot/usr/local/bin/calamares-debug', 'w') as f:
+    f.write('#!/bin/bash\n')
+    f.write('calamares -D 8 2>&1 | tee /tmp/calamares-debug.log\n')
+    f.write('echo "Log saved to /tmp/calamares-debug.log"\n')
+subprocess.run('chmod +x chroot/usr/local/bin/calamares-debug', shell=True)
 
 if os.path.exists('chroot/usr/bin/calamares'):
     print("Calamares installed and configured successfully")

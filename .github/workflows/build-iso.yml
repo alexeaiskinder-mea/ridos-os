@@ -91,6 +91,9 @@ jobs:
           # Browsers
           sudo chroot chroot apt-get install -y firefox-esr
 
+          # Locale data needed by Calamares locale module
+          sudo chroot chroot apt-get install -y             tzdata locales keyboard-configuration console-setup             kbd locales-all 2>/dev/null || true
+
           # Calamares installer - needs /proc /sys /dev mounted
           sudo mount --bind /dev  chroot/dev  2>/dev/null || true
           sudo mount --bind /proc chroot/proc 2>/dev/null || true
