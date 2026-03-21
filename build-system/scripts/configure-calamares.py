@@ -175,6 +175,10 @@ operations:
       - live-boot-initramfs-tools
       - live-config
       - live-config-systemd
+  - install:
+      - grub-pc
+      - grub2-common
+      - os-prober
 ''')
 
 # networkcfg module
@@ -208,7 +212,11 @@ grubMkconfig: "update-grub"
 grubCfg: "/boot/grub/grub.cfg"
 grubProbe: "grub-probe"
 efiInstallerPath: "/usr/bin/efibootmgr"
-installEFIFallback: true
+installEFIFallback: false
+canBeSkipped: false
+grubInstallOptions:
+  - "--force"
+  - "--recheck"
 ''')
 
 write('chroot/etc/default/grub',

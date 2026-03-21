@@ -83,10 +83,19 @@ jobs:
             adwaita-icon-theme papirus-icon-theme \
             fonts-dejavu fonts-liberation fonts-noto fonts-noto-color-emoji
 
-          # VirtualBox & VM tools
-          sudo chroot chroot apt-get install -y \
-            virtualbox-guest-utils virtualbox-guest-x11 \
-            open-vm-tools open-vm-tools-desktop spice-vdagent || true
+          # VirtualBox Guest Additions - install carefully to avoid conflicts
+          sudo chroot chroot apt-get install -y virtualbox-guest-utils || true
+          sudo chroot chroot apt-get install -y virtualbox-guest-x11 || true
+          # VMware tools (separate - may conflict with vbox)
+          sudo chroot chroot apt-get install -y spice-vdagent || true
+          # Verify VBox installation
+          if [ -f chroot/usr/bin/VBoxClient ]; then
+            echo "✅ VBoxClient installed"
+          else
+            echo "⚠️  VBoxClient not found - trying alternative"
+            sudo chroot chroot apt-get install -y --fix-broken || true
+            sudo chroot chroot apt-get install -y virtualbox-guest-additions-iso || true
+          fi
 
           # Browsers
           sudo chroot chroot apt-get install -y firefox-esr
@@ -109,6 +118,10 @@ jobs:
           else
             echo "❌ Calamares binary NOT found - installer will use bash fallback"
           fi
+
+          # Build tools needed for VBox guest modules
+          sudo chroot chroot apt-get install -y \
+            dkms build-essential linux-headers-amd64 || true
 
           # Dev and IT tools
           sudo chroot chroot apt-get install -y \

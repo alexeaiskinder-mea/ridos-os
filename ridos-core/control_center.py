@@ -320,7 +320,7 @@ class RIDOSControlCenter:
         # AI message
         api_status = "🌐 🌐 Online" if (d['internet'] and d['api_ready']) else "⚡ Offline"
         self.ai_msg.config(
-            text=f"{api_status}  |  {dc.get('message', 'Analyzing...')}",
+            text=f"{api_status}  —  {dc.get('message', 'Analyzing...')}",
             fg=PURPLE3)
 
         # Issues
@@ -336,12 +336,16 @@ class RIDOSControlCenter:
             for issue in issues:
                 row = tk.Frame(self.issues_frame, bg=BG2)
                 row.pack(fill='x', pady=3)
-                tk.Label(row, text=issue.get('problem', ''),
+                # Extract English only to avoid Arabic rendering issues
+                problem_text = issue.get('problem', '')
+                if '|' in problem_text:
+                    problem_text = problem_text.split('|')[0].strip()
+                tk.Label(row, text=problem_text,
                          font=("Arial", 10), bg=BG2, fg=TEXT,
                          wraplength=500, justify='left').pack(side='left', expand=True, anchor='w')
                 action = issue.get('action')
                 if action and action in SAFE_ACTIONS:
-                    tk.Button(row, text="Fix Now | إصلاح",
+                    tk.Button(row, text="Fix Now",
                               command=lambda a=action: self._run_action(a),
                               bg=PURPLE, fg=WHITE, font=("Arial", 9, "bold"),
                               relief='flat', padx=8, pady=3,
