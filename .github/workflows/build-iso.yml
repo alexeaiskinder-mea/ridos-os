@@ -134,7 +134,8 @@ jobs:
         run: |
           sudo python3 build-system/scripts/configure-calamares.py
           echo "Calamares configured"
-          - name: Apply RIDOS branding and theme
+
+      - name: Apply RIDOS branding and theme
         run: |
           sudo python3 build-system/scripts/apply-branding.py
           echo "Branding applied"
@@ -144,7 +145,6 @@ jobs:
           sudo mkdir -p chroot/usr/local/bin
           sudo mkdir -p chroot/etc/skel/Desktop/
           sudo mkdir -p chroot/opt/ridos/bin
-          
           # Inject new scripts v1.1.1
           sudo cp build-system/scripts/ridos-wizard.py chroot/usr/local/bin/ridos-wizard
           sudo cp build-system/scripts/ridos-rescue.py chroot/usr/local/bin/ridos-rescue
