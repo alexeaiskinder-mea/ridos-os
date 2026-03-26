@@ -53,8 +53,8 @@ jobs:
           sudo chroot chroot apt-get install -y \
             live-boot live-boot-initramfs-tools \
             linux-image-amd64 initramfs-tools \
-            grub-pc grub-pc-bin \
-            grub-efi-amd64 grub-efi-amd64-bin \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
             grub2-common efibootmgr \
             bash-completion tzdata locales
 
