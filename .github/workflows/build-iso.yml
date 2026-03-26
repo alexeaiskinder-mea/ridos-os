@@ -165,6 +165,10 @@ jobs:
           sudo cp build-system/scripts/dashboard_server.py chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo cp build-system/scripts/ridos-dashboard.html chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo chmod +x chroot/opt/ridos/bin/*.py
+          # Copy GRUB install script to LIVE system
+          sudo cp build-system/scripts/ridos-grub-install.sh chroot/usr/local/bin/ridos-grub-install
+          sudo chmod +x chroot/usr/local/bin/ridos-grub-install
+          echo "GRUB helper installed to live system"
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
                chroot/usr/share/ridos/
           sudo python3 build-system/scripts/install-ridos-files.py
