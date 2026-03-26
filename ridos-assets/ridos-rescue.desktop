@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=RIDOS AI Disk Doctor
+Name[ar]=طبيب الأقراص الذكي
+Comment=Analyze and repair disks using AI and TestDisk
+Comment[ar]=تحليل وإصلاح الأقراص باستخدام الذكاء الاصطناعي و TestDisk
+Exec=sudo /usr/local/bin/ridos-rescue
+Icon=drive-harddisk
+Terminal=true
+Categories=System;Settings;Maintenance;
+Keywords=Disk;Recovery;Repair;AI;
+X-GNOME-Autostart-enabled=true
