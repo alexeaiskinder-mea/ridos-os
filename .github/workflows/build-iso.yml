@@ -53,10 +53,12 @@ jobs:
           sudo chroot chroot apt-get install -y \
             live-boot live-boot-initramfs-tools \
             linux-image-amd64 initramfs-tools \
-            grub-pc grub-pc-bin grub2-common \
+            grub-pc grub-pc-bin \
+            grub-efi-amd64 grub-efi-amd64-bin \
+            grub2-common efibootmgr \
             bash-completion tzdata locales
 
-          # Hardware drivers (Your original full list)
+          # Hardware drivers
           sudo chroot chroot apt-get install -y \
             firmware-linux firmware-linux-free firmware-linux-nonfree \
             firmware-iwlwifi firmware-atheros firmware-realtek \
@@ -73,7 +75,8 @@ jobs:
             pciutils usbutils acpi acpid laptop-detect \
             ntfs-3g exfat-fuse \
             --no-install-recommends || true
-            # XFCE Desktop
+
+          # XFCE Desktop
           sudo chroot chroot apt-get install -y \
             xfce4 xfce4-terminal xfce4-whiskermenu-plugin \
             xfce4-power-manager xfce4-notifyd \
@@ -82,40 +85,54 @@ jobs:
             adwaita-icon-theme papirus-icon-theme \
             fonts-dejavu fonts-liberation fonts-noto fonts-noto-color-emoji
 
-          # VirtualBox Guest Additions
+          # VirtualBox Guest Additions + clipboard sharing
           sudo chroot chroot apt-get install -y virtualbox-guest-utils virtualbox-guest-x11 || true
           sudo chroot chroot apt-get install -y open-vm-tools open-vm-tools-desktop spice-vdagent || true
           sudo chroot chroot systemctl enable spice-vdagentd 2>/dev/null || true
           sudo chroot chroot systemctl enable virtualbox-guest-utils 2>/dev/null || true
+          ls chroot/usr/bin/VBoxClient && echo "VBoxClient OK" || echo "VBox fallback OK"
+          # Verify
+          ls chroot/usr/bin/VBoxClient 2>/dev/null             && echo "VBoxClient installed OK"             || echo "VBox not found - open-vm-tools provides clipboard sharing"
 
           # Browsers
           sudo chroot chroot apt-get install -y firefox-esr
 
-          # Locale data
-          sudo chroot chroot apt-get install -y \
-            tzdata locales keyboard-configuration console-setup \
-            kbd locales-all 2>/dev/null || true
+          # Locale data needed by Calamares locale module
+          sudo chroot chroot apt-get install -y             tzdata locales keyboard-configuration console-setup             kbd locales-all 2>/dev/null || true
 
-          # Calamares installer
-          sudo chroot chroot apt-get install -y --no-install-recommends calamares 
-          sudo chroot chroot apt-get install -y \
-            qml-module-qtquick2 qml-module-qtquick-controls2 \
-            qml-module-qtquick-layouts python3-pyqt5 \
-            efibootmgr os-prober || true
+          # Calamares installer - needs /proc /sys /dev mounted
+          sudo mount --bind /dev  chroot/dev  2>/dev/null || true
+          sudo mount --bind /proc chroot/proc 2>/dev/null || true
+          sudo mount --bind /sys  chroot/sys  2>/dev/null || true
+          sudo chroot chroot apt-get install -y --no-install-recommends calamares             && echo "✅ Calamares installed!" || echo "❌ Calamares FAILED"
+          sudo chroot chroot apt-get install -y             qml-module-qtquick2 qml-module-qtquick-controls2             qml-module-qtquick-layouts python3-pyqt5             efibootmgr os-prober || true
+          sudo umount chroot/sys  2>/dev/null || true
+          sudo umount chroot/proc 2>/dev/null || true
+          sudo umount chroot/dev  2>/dev/null || true
+          # Verify
+          if [ -f chroot/usr/bin/calamares ]; then
+            echo "✅ Calamares binary confirmed at /usr/bin/calamares"
+          else
+            echo "❌ Calamares binary NOT found - installer will use bash fallback"
+          fi
 
-          # Dev and IT tools (RIDOS v1.1.1 Additions)
+          # Build tools needed for VBox guest modules
+          sudo chroot chroot apt-get install -y \
+            dkms build-essential linux-headers-amd64 || true
+
+          # Dev and IT tools
           sudo chroot chroot apt-get install -y \
             python3 python3-pip python3-venv \
-            python3-tk python3-pyqt6 python3-requests \
+            python3-tk \
             python3-flask python3-flask-socketio \
-            python3-psutil \
+            python3-requests python3-psutil \
             git vim nano curl wget \
             nmap net-tools traceroute \
             openssh-client openssh-server \
             htop neofetch tree \
             zip unzip p7zip-full \
             parted gparted rsync dosfstools \
-            testdisk smartmontools hdparm memtest86+ \
+            smartmontools hdparm memtest86+ \
             lshw dmidecode iotop iftop \
             wireshark-common tshark squashfs-tools
 
@@ -135,6 +152,101 @@ jobs:
           sudo python3 build-system/scripts/configure-calamares.py
           echo "Calamares configured"
 
+      - name: Configure GRUB post-install hook
+        run: |
+          sudo mkdir -p chroot/etc/calamares/scripts/
+
+          sudo tee chroot/etc/calamares/scripts/post-install-grub.sh > /dev/null << 'GRUBSCRIPT'
+          #!/bin/bash
+          # RIDOS Post-Install GRUB Hook
+          # Auto-detects UEFI or BIOS mode and installs GRUB correctly.
+          # This makes the OS bootable on ANY PC hardware.
+          set -e
+
+          TARGET=/tmp/calamares-root
+          LOG=/tmp/ridos-grub-install.log
+          exec > >(tee -a $LOG) 2>&1
+
+          echo "=== RIDOS GRUB Post-Install Hook ==="
+          echo "Date: $(date)"
+
+          # Detect the target disk (the disk Calamares installed to)
+          DISK=$(lsblk -nd -o NAME,TYPE | awk '$2=="disk"{print "/dev/"$1}' | head -1)
+          echo "Target disk: $DISK"
+
+          # Mount required filesystems into chroot
+          mount --bind /dev  $TARGET/dev
+          mount --bind /proc $TARGET/proc
+          mount --bind /sys  $TARGET/sys
+          mount --bind /dev/pts $TARGET/dev/pts
+
+          cleanup() {
+            umount $TARGET/sys/firmware/efi/efivars 2>/dev/null || true
+            umount $TARGET/dev/pts 2>/dev/null || true
+            umount $TARGET/sys  2>/dev/null || true
+            umount $TARGET/proc 2>/dev/null || true
+            umount $TARGET/dev  2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          if [ -d /sys/firmware/efi ]; then
+            # UEFI MODE — install grub-efi to the EFI System Partition
+            echo "Boot mode: UEFI"
+
+            # Make sure ESP is mounted
+            if ! mountpoint -q $TARGET/boot/efi; then
+              ESP=$(blkid -t TYPE=vfat -o device | head -1)
+              echo "Mounting ESP: $ESP -> $TARGET/boot/efi"
+              mkdir -p $TARGET/boot/efi
+              mount $ESP $TARGET/boot/efi
+            fi
+
+            # Mount EFI vars
+            mount --bind /sys/firmware/efi/efivars \
+              $TARGET/sys/firmware/efi/efivars 2>/dev/null || true
+
+            chroot $TARGET grub-install \
+              --target=x86_64-efi \
+              --efi-directory=/boot/efi \
+              --bootloader-id=RIDOS \
+              --recheck \
+              --no-floppy \
+              && echo "✅ GRUB EFI installed" \
+              || echo "❌ GRUB EFI install failed"
+
+            # Fallback: copy to /EFI/boot/bootx64.efi for UEFI PCs
+            # that don't support custom bootloader IDs
+            EFI_BOOT=$TARGET/boot/efi/EFI/boot
+            mkdir -p $EFI_BOOT
+            cp $TARGET/boot/efi/EFI/RIDOS/grubx64.efi \
+               $EFI_BOOT/bootx64.efi 2>/dev/null \
+               && echo "✅ Fallback bootx64.efi copied" \
+               || echo "⚠️  Fallback copy skipped"
+
+          else
+            # BIOS / Legacy Mode — install grub-pc to MBR of target disk
+            echo "Boot mode: BIOS/Legacy"
+
+            chroot $TARGET grub-install \
+              --target=i386-pc \
+              --recheck \
+              --no-floppy \
+              $DISK \
+              && echo "✅ GRUB BIOS installed to $DISK" \
+              || echo "❌ GRUB BIOS install failed"
+          fi
+
+          # Regenerate grub.cfg with correct kernel paths
+          chroot $TARGET update-grub \
+            && echo "✅ grub.cfg updated" \
+            || echo "❌ update-grub failed"
+
+          echo "=== GRUB Hook Complete ==="
+          GRUBSCRIPT
+
+          sudo chmod +x chroot/etc/calamares/scripts/post-install-grub.sh
+          echo "✅ Post-install GRUB hook written"
+
       - name: Apply RIDOS branding and theme
         run: |
           sudo python3 build-system/scripts/apply-branding.py
@@ -142,63 +254,117 @@ jobs:
 
       - name: Install RIDOS core files
         run: |
-          sudo mkdir -p chroot/usr/local/bin
-          sudo mkdir -p chroot/etc/skel/Desktop/
           sudo mkdir -p chroot/opt/ridos/bin
-          # Inject new scripts v1.1.1
-          sudo cp build-system/scripts/ridos-wizard.py chroot/usr/local/bin/ridos-wizard
-          sudo cp build-system/scripts/ridos-rescue.py chroot/usr/local/bin/ridos-rescue
-          sudo chmod +x chroot/usr/local/bin/ridos-*
-          
-          # Inject Desktop Icon
-          sudo cp ridos-assets/ridos-rescue.desktop chroot/etc/skel/Desktop/
-          
-          # Original Core Files
-          sudo cp ridos-core/*.py chroot/opt/ridos/bin/ 2>/dev/null || true
+          sudo mkdir -p chroot/usr/share/ridos
+          sudo cp ridos-core/*.py chroot/opt/ridos/bin/
+          sudo chmod +x chroot/opt/ridos/bin/control_center.py
+          sudo cp build-system/scripts/ai_features.py      chroot/opt/ridos/bin/ 2>/dev/null || true
+          sudo cp build-system/scripts/dashboard_server.py chroot/opt/ridos/bin/ 2>/dev/null || true
+          sudo cp build-system/scripts/ridos-dashboard.html chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo chmod +x chroot/opt/ridos/bin/*.py
-          
+          sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
+               chroot/usr/share/ridos/
           sudo python3 build-system/scripts/install-ridos-files.py
           echo "RIDOS files installed"
 
       - name: Build squashfs filesystem
         run: |
-          sudo mksquashfs chroot filesystem.squashfs -comp xz -e boot -noappend
+          sudo mksquashfs chroot filesystem.squashfs \
+            -comp xz -e boot -noappend
+          echo "squashfs: $(du -sh filesystem.squashfs)"
 
       - name: Prepare ISO structure
         run: |
           mkdir -p iso/live iso/boot/grub
           cp filesystem.squashfs iso/live/
-          KERNEL=$(ls chroot/boot/vmlinuz-* | sort -V | tail -1)
-          INITRD=$(ls chroot/boot/initrd.img-* | sort -V | tail -1)
+          KERNEL=$(ls chroot/boot/vmlinuz-* 2>/dev/null | sort -V | tail -1)
+          INITRD=$(ls chroot/boot/initrd.img-* 2>/dev/null | sort -V | tail -1)
+          echo "Kernel: $KERNEL  Initrd: $INITRD"
+          if [ -z "$KERNEL" ]; then
+            echo "❌ ERROR: No versioned vmlinuz found in chroot/boot/"
+            ls chroot/boot/
+            exit 1
+          fi
           cp "$KERNEL" iso/live/vmlinuz
           cp "$INITRD" iso/live/initrd
           python3 build-system/scripts/write-grub-config.py
+          echo "ISO structure ready"
 
       - name: Build GRUB and create bootable ISO
         run: |
-          grub-mkimage -O i386-pc -o bios.core.img -p "/boot/grub" iso9660 linux normal biosdisk search
+          grub-mkimage -O i386-pc -o bios.core.img \
+            -p "/boot/grub" iso9660 linux normal biosdisk search
           cat /usr/lib/grub/i386-pc/cdboot.img bios.core.img > bios.img
-          grub-mkimage -O x86_64-efi -o bootx64.efi -p "/boot/grub" iso9660 linux normal search
+
+          grub-mkimage -O x86_64-efi -o bootx64.efi \
+            -p "/boot/grub" iso9660 linux normal search search_fs_uuid \
+            search_label fat part_gpt part_msdos \
+            linuxefi gfxterm gfxterm_background \
+            all_video video_fb video_bochs \
+            echo configfile minicmd
+
           dd if=/dev/zero of=efi.img bs=1M count=10 status=none
           mkfs.vfat -F 12 efi.img
           mmd -i efi.img ::/EFI ::/EFI/boot
           mcopy -i efi.img bootx64.efi ::/EFI/boot/bootx64.efi
+
           mkdir -p iso/boot/grub/i386-pc
           cp /usr/lib/grub/i386-pc/*.mod iso/boot/grub/i386-pc/ 2>/dev/null || true
+          cp /usr/lib/grub/i386-pc/*.lst iso/boot/grub/i386-pc/ 2>/dev/null || true
           cp bios.img iso/boot/grub/bios.img
 
+          mkdir -p iso/boot/grub/x86_64-efi
+          cp /usr/lib/grub/x86_64-efi/*.mod iso/boot/grub/x86_64-efi/ 2>/dev/null || true
+          cp /usr/lib/grub/x86_64-efi/*.lst iso/boot/grub/x86_64-efi/ 2>/dev/null || true
+
           xorriso -as mkisofs \
-            -iso-level 3 -full-iso9660-filenames -volid "RIDOS_BAGHDAD_1.1.1" \
+            -iso-level 3 \
+            -full-iso9660-filenames \
+            -volid "RIDOS_OS_1.1" \
+            -publisher "RIDOS OS Project" \
             --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-            -partition_offset 16 --mbr-force-bootable \
-            -append_partition 2 0xef efi.img -appended_part_as_gpt \
-            -c boot/grub/boot.cat -b boot/grub/bios.img \
-            -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
-            -eltorito-alt-boot -e --interval:appended_partition_2:all:: -no-emul-boot \
-            -o ridos-os-1.1.1-Baghdad-Plus.iso -graft-points "/=iso"
+            -partition_offset 16 \
+            --mbr-force-bootable \
+            -append_partition 2 0xef efi.img \
+            -appended_part_as_gpt \
+            -iso_mbr_part_type 0x00 \
+            -c boot/grub/boot.cat \
+            -b boot/grub/bios.img \
+            -no-emul-boot \
+            -boot-load-size 4 \
+            -boot-info-table \
+            --grub2-boot-info \
+            -eltorito-alt-boot \
+            -e --interval:appended_partition_2:all:: \
+            -no-emul-boot \
+            -o ridos-os-1.1.0-Baghdad-x86_64.iso \
+            -graft-points \
+              "/boot/grub/bios.img=bios.img" \
+              "/=iso"
+
+          ls -lh ridos-os-1.1.0-Baghdad-x86_64.iso
+          file ridos-os-1.1.0-Baghdad-x86_64.iso
+          md5sum    ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+          sha256sum ridos-os-1.1.0-Baghdad-x86_64.iso > ridos-os-1.1.0-Baghdad-x86_64.iso.sha256
+          echo "ISO ready!"
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RIDOS-Baghdad-v1.1.1-Plus
-          path: ridos-os-1.1.1-Baghdad-Plus.iso
+          name: RIDOS-OS-1.1.0-Baghdad
+          path: |
+            ridos-os-1.1.0-Baghdad-x86_64.iso
+            ridos-os-1.1.0-Baghdad-x86_64.iso.md5
+            ridos-os-1.1.0-Baghdad-x86_64.iso.sha256
+          retention-days: 30
+
+      - name: Create GitHub Release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            ridos-os-1.1.0-Baghdad-x86_64.iso \
+            ridos-os-1.1.0-Baghdad-x86_64.iso.md5 \
+            --title "RIDOS OS ${{ github.ref_name }} Baghdad" \
+            --notes "RIDOS OS v1.1.0 Baghdad - AI-Powered Linux. Login: ridos/ridos. GPL v3."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
