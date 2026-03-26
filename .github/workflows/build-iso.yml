@@ -53,9 +53,7 @@ jobs:
           sudo chroot chroot apt-get install -y \
             live-boot live-boot-initramfs-tools \
             linux-image-amd64 initramfs-tools \
-            grub-pc-bin \
-            grub-efi-amd64-bin \
-            grub2-common efibootmgr \
+            grub-pc grub-pc-bin grub2-common \
             bash-completion tzdata locales
 
           # Hardware drivers
@@ -152,101 +150,6 @@ jobs:
           sudo python3 build-system/scripts/configure-calamares.py
           echo "Calamares configured"
 
-      - name: Configure GRUB post-install hook
-        run: |
-          sudo mkdir -p chroot/etc/calamares/scripts/
-
-          sudo tee chroot/etc/calamares/scripts/post-install-grub.sh > /dev/null << 'GRUBSCRIPT'
-          #!/bin/bash
-          # RIDOS Post-Install GRUB Hook
-          # Auto-detects UEFI or BIOS mode and installs GRUB correctly.
-          # This makes the OS bootable on ANY PC hardware.
-          set -e
-
-          TARGET=/tmp/calamares-root
-          LOG=/tmp/ridos-grub-install.log
-          exec > >(tee -a $LOG) 2>&1
-
-          echo "=== RIDOS GRUB Post-Install Hook ==="
-          echo "Date: $(date)"
-
-          # Detect the target disk (the disk Calamares installed to)
-          DISK=$(lsblk -nd -o NAME,TYPE | awk '$2=="disk"{print "/dev/"$1}' | head -1)
-          echo "Target disk: $DISK"
-
-          # Mount required filesystems into chroot
-          mount --bind /dev  $TARGET/dev
-          mount --bind /proc $TARGET/proc
-          mount --bind /sys  $TARGET/sys
-          mount --bind /dev/pts $TARGET/dev/pts
-
-          cleanup() {
-            umount $TARGET/sys/firmware/efi/efivars 2>/dev/null || true
-            umount $TARGET/dev/pts 2>/dev/null || true
-            umount $TARGET/sys  2>/dev/null || true
-            umount $TARGET/proc 2>/dev/null || true
-            umount $TARGET/dev  2>/dev/null || true
-          }
-          trap cleanup EXIT
-
-          if [ -d /sys/firmware/efi ]; then
-            # UEFI MODE — install grub-efi to the EFI System Partition
-            echo "Boot mode: UEFI"
-
-            # Make sure ESP is mounted
-            if ! mountpoint -q $TARGET/boot/efi; then
-              ESP=$(blkid -t TYPE=vfat -o device | head -1)
-              echo "Mounting ESP: $ESP -> $TARGET/boot/efi"
-              mkdir -p $TARGET/boot/efi
-              mount $ESP $TARGET/boot/efi
-            fi
-
-            # Mount EFI vars
-            mount --bind /sys/firmware/efi/efivars \
-              $TARGET/sys/firmware/efi/efivars 2>/dev/null || true
-
-            chroot $TARGET grub-install \
-              --target=x86_64-efi \
-              --efi-directory=/boot/efi \
-              --bootloader-id=RIDOS \
-              --recheck \
-              --no-floppy \
-              && echo "✅ GRUB EFI installed" \
-              || echo "❌ GRUB EFI install failed"
-
-            # Fallback: copy to /EFI/boot/bootx64.efi for UEFI PCs
-            # that don't support custom bootloader IDs
-            EFI_BOOT=$TARGET/boot/efi/EFI/boot
-            mkdir -p $EFI_BOOT
-            cp $TARGET/boot/efi/EFI/RIDOS/grubx64.efi \
-               $EFI_BOOT/bootx64.efi 2>/dev/null \
-               && echo "✅ Fallback bootx64.efi copied" \
-               || echo "⚠️  Fallback copy skipped"
-
-          else
-            # BIOS / Legacy Mode — install grub-pc to MBR of target disk
-            echo "Boot mode: BIOS/Legacy"
-
-            chroot $TARGET grub-install \
-              --target=i386-pc \
-              --recheck \
-              --no-floppy \
-              $DISK \
-              && echo "✅ GRUB BIOS installed to $DISK" \
-              || echo "❌ GRUB BIOS install failed"
-          fi
-
-          # Regenerate grub.cfg with correct kernel paths
-          chroot $TARGET update-grub \
-            && echo "✅ grub.cfg updated" \
-            || echo "❌ update-grub failed"
-
-          echo "=== GRUB Hook Complete ==="
-          GRUBSCRIPT
-
-          sudo chmod +x chroot/etc/calamares/scripts/post-install-grub.sh
-          echo "✅ Post-install GRUB hook written"
-
       - name: Apply RIDOS branding and theme
         run: |
           sudo python3 build-system/scripts/apply-branding.py
@@ -262,6 +165,10 @@ jobs:
           sudo cp build-system/scripts/dashboard_server.py chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo cp build-system/scripts/ridos-dashboard.html chroot/opt/ridos/bin/ 2>/dev/null || true
           sudo chmod +x chroot/opt/ridos/bin/*.py
+          # Copy GRUB install script to LIVE system
+          sudo cp build-system/scripts/ridos-grub-install.sh chroot/usr/local/bin/ridos-grub-install
+          sudo chmod +x chroot/usr/local/bin/ridos-grub-install
+          echo "GRUB helper installed to live system"
           sudo cp legal/LICENSE.txt legal/COPYRIGHT legal/CONTRIBUTORS.md \
                chroot/usr/share/ridos/
           sudo python3 build-system/scripts/install-ridos-files.py
@@ -280,11 +187,6 @@ jobs:
           KERNEL=$(ls chroot/boot/vmlinuz-* 2>/dev/null | sort -V | tail -1)
           INITRD=$(ls chroot/boot/initrd.img-* 2>/dev/null | sort -V | tail -1)
           echo "Kernel: $KERNEL  Initrd: $INITRD"
-          if [ -z "$KERNEL" ]; then
-            echo "❌ ERROR: No versioned vmlinuz found in chroot/boot/"
-            ls chroot/boot/
-            exit 1
-          fi
           cp "$KERNEL" iso/live/vmlinuz
           cp "$INITRD" iso/live/initrd
           python3 build-system/scripts/write-grub-config.py
@@ -297,11 +199,7 @@ jobs:
           cat /usr/lib/grub/i386-pc/cdboot.img bios.core.img > bios.img
 
           grub-mkimage -O x86_64-efi -o bootx64.efi \
-            -p "/boot/grub" iso9660 linux normal search search_fs_uuid \
-            search_label fat part_gpt part_msdos \
-            linuxefi gfxterm gfxterm_background \
-            all_video video_fb video_bochs \
-            echo configfile minicmd
+            -p "/boot/grub" iso9660 linux normal search
 
           dd if=/dev/zero of=efi.img bs=1M count=10 status=none
           mkfs.vfat -F 12 efi.img
@@ -312,10 +210,6 @@ jobs:
           cp /usr/lib/grub/i386-pc/*.mod iso/boot/grub/i386-pc/ 2>/dev/null || true
           cp /usr/lib/grub/i386-pc/*.lst iso/boot/grub/i386-pc/ 2>/dev/null || true
           cp bios.img iso/boot/grub/bios.img
-
-          mkdir -p iso/boot/grub/x86_64-efi
-          cp /usr/lib/grub/x86_64-efi/*.mod iso/boot/grub/x86_64-efi/ 2>/dev/null || true
-          cp /usr/lib/grub/x86_64-efi/*.lst iso/boot/grub/x86_64-efi/ 2>/dev/null || true
 
           xorriso -as mkisofs \
             -iso-level 3 \
