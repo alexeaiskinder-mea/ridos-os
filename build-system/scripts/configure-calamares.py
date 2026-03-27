@@ -198,9 +198,11 @@ operations:
   - install:
       - grub-pc
       - grub-pc-bin
+      - grub-efi-amd64-bin
       - grub2-common
       - grub-common
       - os-prober
+      - efibootmgr
 ''')
 
 # bootloader config - allow skip since shellprocess handles it
