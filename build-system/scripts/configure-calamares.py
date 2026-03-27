@@ -188,21 +188,13 @@ explicitNMconfig: true
 # Without this, grub-install and update-grub don't exist after install
 write('chroot/etc/calamares/modules/packages.conf', '''---
 backend: apt
-update_db: true
+update_db: false
 operations:
   - remove:
       - live-boot
       - live-boot-initramfs-tools
       - calamares
       - calamares-settings-debian
-  - install:
-      - grub-pc
-      - grub-pc-bin
-      - grub-efi-amd64-bin
-      - grub2-common
-      - grub-common
-      - os-prober
-      - efibootmgr
 ''')
 
 # bootloader config - allow skip since shellprocess handles it
